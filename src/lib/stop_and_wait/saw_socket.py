@@ -3,7 +3,8 @@ import math
 import queue
 import socket
 import threading
-from mux_demux import MTByteStream, MuxDemuxStream
+from lib.mux_demux.stream import MuxDemuxStream
+from lib.utils import MTByteStream
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,10 @@ class Packet:
             return packet
         elif packet_type == INFO:
             packet.type = INFO
-            packet.headers["length"] = int.from_bytes(stream.recv_exact(16), byteorder="big")
-            packet.headers["packet_number"] = int.from_bytes(stream.recv_exact(4), byteorder="big")
+            packet.headers["length"] = int.from_bytes(
+                stream.recv_exact(16), byteorder="big")
+            packet.headers["packet_number"] = int.from_bytes(
+                stream.recv_exact(4), byteorder="big")
             packet.body = stream.recv_exact(packet.headers["length"])
             return packet
         elif packet_type == ACK:
@@ -90,8 +93,10 @@ class Packet:
         elif self.type == INFO:
             packet_bytes = b''
             packet_bytes += self.type.encode("utf-8")
-            packet_bytes += self.headers["length"].to_bytes(16, byteorder="big")
-            packet_bytes += self.headers["packet_number"].to_bytes(4, byteorder="big")
+            packet_bytes += self.headers["length"].to_bytes(
+                16, byteorder="big")
+            packet_bytes += self.headers["packet_number"].to_bytes(
+                4, byteorder="big")
             packet_bytes += self.body
             return packet_bytes
         elif self.type == ACK:
@@ -135,7 +140,8 @@ class SAWSocket:
         self.is_from_listener = True
         self.socket = mux_demux_socket
 
-        self.packet_thread_handler = threading.Thread(target=self.packet_handler)
+        self.packet_thread_handler = threading.Thread(
+            target=self.packet_handler)
         self.packet_thread_handler.start()
         self.info_bytestream = MTByteStream()
 
@@ -144,7 +150,7 @@ class SAWSocket:
         logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
         self.socket = MuxDemuxStream()
         self.socket.connect(addr)
-        #self.socket.setblocking(False)
+        # self.socket.setblocking(False)
         self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
         while True:
             try:
@@ -156,18 +162,21 @@ class SAWSocket:
                     self.status = CONNECTED
                     break
                 else:
-                    logger.error("Received unexpected packet type (expected CONNACK)")
+                    logger.error(
+                        "Received unexpected packet type (expected CONNACK)")
             except socket.timeout:
                 logger.debug("Time out waiting for CONNACK, sending again")
         logger.debug("Connected")
-        self.packet_thread_handler = threading.Thread(target=self.packet_handler)
+        self.packet_thread_handler = threading.Thread(
+            target=self.packet_handler)
         self.packet_thread_handler.start()
 
     def packet_handler(self):
         logger.debug("Packet handler started")
         while True:
             packet = Packet.read_from_stream(self.socket)
-            logger.debug(f"Received packet {packet.type} with headers {packet.headers} and body {packet.body}")
+            logger.debug(
+                f"Received packet {packet.type} with headers {packet.headers} and body {packet.body}")
             if packet.type == CONNECT:
                 self.handle_connect(packet)
             elif packet.type == CONNACK:
@@ -188,7 +197,8 @@ class SAWSocket:
             self.status = CONNECTED
 
         if self.expected_packet_number == packet.headers["packet_number"]:
-            logger.debug("Received expected INFO packet (number %d)" % packet.headers["packet_number"])
+            logger.debug("Received expected INFO packet (number %d)" %
+                         packet.headers["packet_number"])
             self.socket.send_all(Packet.ack().encode())
             self.info_bytestream.put_bytes(packet.body)
             self.expected_packet_number += 1
@@ -196,17 +206,19 @@ class SAWSocket:
             logger.debug("Received INFO retransmission")
             self.socket.send_all(Packet.ack().encode())
         else:
-            logger.error("Received unexpected INFO packet, dropping (expected %s, received %s)" % (self.expected_packet_number, packet.headers["packet_number"]))
-            raise Exception("Received unexpected INFO packet, dropping (expected %s, received %s)" % (self.expected_packet_number, packet.headers["packet_number"]))
+            logger.error("Received unexpected INFO packet, dropping (expected %s, received %s)" % (
+                self.expected_packet_number, packet.headers["packet_number"]))
+            raise Exception("Received unexpected INFO packet, dropping (expected %s, received %s)" % (
+                self.expected_packet_number, packet.headers["packet_number"]))
 
     def handle_connect(self, packet):
         if self.is_from_listener:
             if self.status == NOT_CONNECTED or self.status == CONNECTING:
                 self.status = CONNECTING
                 self.socket.send_all(Packet.connack().encode())
-            else: # self.status == CONNECTED
+            else:  # self.status == CONNECTED
                 logger.error("Received connect packet while already connected")
-        else: # socket from client
+        else:  # socket from client
             logger.error("Received connect packet from server")
 
     def handle_connack(self, packet):
@@ -217,7 +229,8 @@ class SAWSocket:
                 self.status = CONNECTED
                 logger.debug("Connected")
             else:
-                logger.error("Received connack packet while not connecting (status: %s)" % self.status)
+                logger.error(
+                    "Received connack packet while not connecting (status: %s)" % self.status)
 
     def handle_ack(self, packet):
         if self.status != CONNECTED:
@@ -237,7 +250,8 @@ class SAWSocket:
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
-                logger.debug("Sending packet %d" % packet.headers["packet_number"])
+                logger.debug("Sending packet %d" %
+                             packet.headers["packet_number"])
                 while True:
                     self.socket.send_all(packet.encode())
                     try:
@@ -245,17 +259,21 @@ class SAWSocket:
                         logger.debug("Received ACK packet")
                         break
                     except queue.Empty:
-                        logger.error("Timeout waiting for ACK packet, sending again")
+                        logger.error(
+                            "Timeout waiting for ACK packet, sending again")
 
     def recv(self, buff_size):
         if self.status == NOT_CONNECTED:
             logger.error("Trying to receive data while not connected")
-            raise Exception(f"Trying to receive data while not connected (status {self.status})")
+            raise Exception(
+                f"Trying to receive data while not connected (status {self.status})")
         else:
             logger.debug("Receiving data (buff_size %d)" % buff_size)
-            info_body_bytes = self.info_bytestream.get_bytes(buff_size, timeout=1)
+            info_body_bytes = self.info_bytestream.get_bytes(
+                buff_size, timeout=1)
             if len(info_body_bytes) > 0:
-                logger.debug("Received INFO packet (%d bytes)" % len(info_body_bytes))
+                logger.debug("Received INFO packet (%d bytes)" %
+                             len(info_body_bytes))
                 return info_body_bytes
             else:
                 return b''

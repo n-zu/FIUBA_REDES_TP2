@@ -1,5 +1,28 @@
 # TP2: File Transfer Protocol
 
+## Requisitos
+
+`pip install -r requirements.txt`
+
+## Tests
+
+Para ejecutar los tests:
+
+```
+cd src
+python3 -m pytest
+```
+
+> Nota: Para ejecutar `test_rdt_listener.py` y `test_saw.py`:
+>
+> ```
+> cd src
+> python3 -m tests.test_rdt_listener
+> python3 -m tests.test_saw
+> ```
+>
+> ⠀
+
 ## Draft
 
 | Module | Client Functionalities              | Server Functionalities                               | Notes                    |

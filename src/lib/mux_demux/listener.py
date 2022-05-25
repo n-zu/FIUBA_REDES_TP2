@@ -1,5 +1,6 @@
 import threading
 import logging
+from .stream import *
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ class MuxDemuxListener:
         logger.debug("Starting accepter thread")
         while True:
             data, addr = self.accept_socket.recvfrom(PACKET_SIZE)
-            logger.debug("Received {} bytes from {} ({})".format(len(data), addr, data.decode("utf-8")))
+            logger.debug("Received {} bytes from {} ({})".format(
+                len(data), addr, data.decode("utf-8")))
 
             data = extract_packet(data)
             logger.debug("Extracted packet: {}".format(data))
@@ -53,7 +55,8 @@ class MuxDemuxListener:
                 addr = self.waiting_connections.pop(0)
                 logger.info("Accepted connection from {}".format(addr))
                 new_stream = MuxDemuxStream()
-                new_stream.from_listener(self.bytestreams[addr], self.accept_socket, addr)
+                new_stream.from_listener(
+                    self.bytestreams[addr], self.accept_socket, addr)
                 return new_stream
             else:
                 time.sleep(0.5)
@@ -62,8 +65,8 @@ class MuxDemuxListener:
     def listen(self, queue_size):
         logger.debug("Setting queue size to {}".format(queue_size))
         self.queue_size = queue_size
-        accept_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        accept_socket = socket.socket(
+            family=socket.AF_INET, type=socket.SOCK_DGRAM)
         accept_socket.bind(self.bind_addr)
         self.accept_socket = accept_socket
         self.accept_thread_handle.start()
-

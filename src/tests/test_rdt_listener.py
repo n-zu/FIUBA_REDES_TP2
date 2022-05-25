@@ -1,8 +1,8 @@
 import logging
-
 import time
+import sys
 
-from src.lib.rdt.rdt_listener import RDTListener, STOP_AND_WAIT
+from lib.rdt_listener.rdt_listener import RDTListener, STOP_AND_WAIT
 
 logging.basicConfig(level=logging.DEBUG)
 
