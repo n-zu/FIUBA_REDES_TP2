@@ -2,7 +2,7 @@ import logging
 
 from lib.mux_demux.listener import MuxDemuxListener, MuxDemuxStream
 from lib.stop_and_wait.saw_socket import SAWSocket
-#from lib.selective_repeat.sr_socket import SRSocket
+from lib.selective_repeat.sr_socket import SRSocket
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,7 @@ class RDTListener:
         if self.rdt_method == STOP_AND_WAIT:
             new_rdt_stream = SAWSocket()
         elif self.rdt_method == SELECTIVE_REPEAT:
-            # new_rdt_stream = SRSocket() FIXME
-            new_rdt_stream = SAWSocket()
+            new_rdt_stream = SRSocket()
         else:
             raise NotImplementedError
         new_rdt_stream.from_listener(new_mux_demux_stream)
