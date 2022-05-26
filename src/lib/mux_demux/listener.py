@@ -1,5 +1,3 @@
-import threading
-import logging
 from .stream import *
 
 logger = logging.getLogger(__name__)
@@ -68,9 +66,7 @@ class MuxDemuxListener:
     def listen(self, queue_size):
         logger.debug("Setting queue size to {}".format(queue_size))
         self.queue_size = queue_size
-        accept_socket = socket.socket(
-            family=socket.AF_INET, type=socket.SOCK_DGRAM
-        )
+        accept_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         accept_socket.bind(self.bind_addr)
         self.accept_socket = accept_socket
         self.accept_thread_handle.start()
