@@ -42,7 +42,9 @@ class SAWSocket:
         self.is_from_listener = True
         self.socket = mux_demux_socket
 
-        self.packet_thread_handler = threading.Thread(target=self.packet_handler)
+        self.packet_thread_handler = threading.Thread(
+            target=self.packet_handler
+        )
         self.packet_thread_handler.start()
         self.info_bytestream = MTByteStream()
 
@@ -63,11 +65,15 @@ class SAWSocket:
                     self.status = CONNECTED
                     break
                 else:
-                    logger.error("Received unexpected packet type (expected CONNACK)")
+                    logger.error(
+                        "Received unexpected packet type (expected CONNACK)"
+                    )
             except socket.timeout:
                 logger.debug("Time out waiting for CONNACK, sending again")
         logger.debug("Connected")
-        self.packet_thread_handler = threading.Thread(target=self.packet_handler)
+        self.packet_thread_handler = threading.Thread(
+            target=self.packet_handler
+        )
         self.packet_thread_handler.start()
         self.info_bytestream = MTByteStream()
 
@@ -76,7 +82,8 @@ class SAWSocket:
         while True:
             packet = Packet.read_from_stream(self.socket)
             logger.debug(
-                f"Received packet {packet.type} with headers {packet.headers} and body {packet.body}"
+                f"Received packet {packet.type} with headers"
+                f" {packet.headers} and body {packet.body}"
             )
             if packet.type == CONNECT:
                 self.handle_connect(packet)
@@ -110,17 +117,27 @@ class SAWSocket:
             self.socket.send_all(Packet.ack().encode())
             self.info_bytestream.put_bytes(packet.body)
             self.expected_packet_number += 1
-        elif packet.headers["packet_number"] == self.expected_packet_number - 1:
+        elif (
+            packet.headers["packet_number"] == self.expected_packet_number - 1
+        ):
             logger.debug("Received INFO retransmission")
             self.socket.send_all(Packet.ack().encode())
         else:
             logger.error(
-                "Received unexpected INFO packet, dropping (expected %s, received %s)"
-                % (self.expected_packet_number, packet.headers["packet_number"])
+                "Received unexpected INFO packet, dropping (expected %s,"
+                " received %s)"
+                % (
+                    self.expected_packet_number,
+                    packet.headers["packet_number"],
+                )
             )
             raise Exception(
-                "Received unexpected INFO packet, dropping (expected %s, received %s)"
-                % (self.expected_packet_number, packet.headers["packet_number"])
+                "Received unexpected INFO packet, dropping (expected %s,"
+                " received %s)"
+                % (
+                    self.expected_packet_number,
+                    packet.headers["packet_number"],
+                )
             )
 
     def handle_connect(self, packet):
@@ -179,7 +196,9 @@ class SAWSocket:
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
-                logger.debug("Sending packet %d" % packet.headers["packet_number"])
+                logger.debug(
+                    "Sending packet %d" % packet.headers["packet_number"]
+                )
                 while True:
                     self.socket.send_all(packet.encode())
                     try:
@@ -187,19 +206,26 @@ class SAWSocket:
                         logger.debug("Received ACK packet")
                         break
                     except queue.Empty:
-                        logger.error("Timeout waiting for ACK packet, sending again")
+                        logger.error(
+                            "Timeout waiting for ACK packet, sending again"
+                        )
 
     def recv(self, buff_size):
         if self.status == NOT_CONNECTED:
             logger.error("Trying to receive data while not connected")
             raise Exception(
-                f"Trying to receive data while not connected (status {self.status})"
+                "Trying to receive data while not connected (status"
+                f" {self.status})"
             )
         else:
             logger.debug("Receiving data (buff_size %d)" % buff_size)
-            info_body_bytes = self.info_bytestream.get_bytes(buff_size, timeout=1)
+            info_body_bytes = self.info_bytestream.get_bytes(
+                buff_size, timeout=1
+            )
             if len(info_body_bytes) > 0:
-                logger.debug("Received INFO packet (%d bytes)" % len(info_body_bytes))
+                logger.debug(
+                    "Received INFO packet (%d bytes)" % len(info_body_bytes)
+                )
                 return info_body_bytes
             else:
                 return b""

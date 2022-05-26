@@ -6,18 +6,20 @@ import logging
 from ..utils import MTByteStream
 
 MAGIC_WORD = "ROSTOV"
-PACKET_SIZE = 2 ** 15
+PACKET_SIZE = 2**15
 
 logger = logging.getLogger(__name__)
 
-WINDOW_SIZE = 2 ** 10
+WINDOW_SIZE = 2**10
 
 
 def extract_packet(packet):
     magic_word = packet[: len(MAGIC_WORD)]
     magic_word = magic_word.decode("utf-8")
     if magic_word != MAGIC_WORD:
-        logger.error("Invalid magic word (expected %s, got %s)", MAGIC_WORD, magic_word)
+        logger.error(
+            "Invalid magic word (expected %s, got %s)", MAGIC_WORD, magic_word
+        )
     packet = packet[len(MAGIC_WORD) :]
     return packet
 
@@ -36,7 +38,9 @@ class MuxDemuxStream:
     def connect(self, send_addr):
         self.send_addr = send_addr
         self.bytestream = MTByteStream()
-        self.recv_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        self.recv_socket = socket.socket(
+            family=socket.AF_INET, type=socket.SOCK_DGRAM
+        )
         self.send_socket = self.recv_socket
         self.recv_thread_handle = threading.Thread(target=self.recv_thread)
         self.recv_thread_handle.start()
@@ -53,7 +57,9 @@ class MuxDemuxStream:
         while True:
             try:
                 data, addr = self.recv_socket.recvfrom(PACKET_SIZE)
-                logger.debug("Received {} bytes from {}".format(len(data), addr))
+                logger.debug(
+                    "Received {} bytes from {}".format(len(data), addr)
+                )
                 data = extract_packet(data)
                 if addr != self.send_addr:
                     raise Exception(
@@ -67,7 +73,9 @@ class MuxDemuxStream:
 
     def send(self, buffer):
         logger.debug(
-            "Sending {} bytes to {} ({})".format(len(buffer), self.send_addr, buffer)
+            "Sending {} bytes to {} ({})".format(
+                len(buffer), self.send_addr, buffer
+            )
         )
         bytes_sent = self.send_socket.sendto(
             str.encode(MAGIC_WORD) + buffer, self.send_addr
@@ -78,7 +86,6 @@ class MuxDemuxStream:
         bytes_sent = 0
         while bytes_sent < len(data):
             tmp = self.send(data[bytes_sent:])
-            print("SEND RETURN:", tmp)
             bytes_sent += tmp
             #bytes_sent += self.send(data[bytes_sent:])
         return bytes_sent

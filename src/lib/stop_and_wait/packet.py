@@ -10,6 +10,7 @@ ACK = "3"
 FIN = "4"
 FINACK = "5"
 
+
 class Packet:
     def __init__(self):
         self.type = None
@@ -52,7 +53,9 @@ class Packet:
             packet.headers["packet_number"] = int.from_bytes(
                 stream.recv_exact(4), byteorder="big"
             )
-            logger.debug("Reading packet body (length: %d)", packet.headers["length"])
+            logger.debug(
+                "Reading packet body (length: %d)", packet.headers["length"]
+            )
             packet.body = stream.recv_exact(packet.headers["length"])
             return packet
         elif packet_type == ACK:
@@ -82,8 +85,12 @@ class Packet:
         elif self.type == INFO:
             packet_bytes = b""
             packet_bytes += self.type.encode("utf-8")
-            packet_bytes += self.headers["length"].to_bytes(16, byteorder="big")
-            packet_bytes += self.headers["packet_number"].to_bytes(4, byteorder="big")
+            packet_bytes += self.headers["length"].to_bytes(
+                16, byteorder="big"
+            )
+            packet_bytes += self.headers["packet_number"].to_bytes(
+                4, byteorder="big"
+            )
             packet_bytes += self.body
             return packet_bytes
         elif self.type == ACK:
