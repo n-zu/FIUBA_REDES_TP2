@@ -18,7 +18,7 @@ if __name__ == "__main__":
     data = b""
     while data != b"Hello World, this is a test, but a longer one":
         data += stream.recv(4096)
-        logging.debug(f"Received {data.decode()} from server")
 
-    print(f"Received {data} from client")
+    logging.debug(f"Received {data.decode()} from client")
+    stream.send(b"Hello from server")
     exit()
