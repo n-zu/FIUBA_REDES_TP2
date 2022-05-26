@@ -21,4 +21,7 @@ if __name__ == "__main__":
 
     logging.debug(f"Received {data.decode()} from client")
     stream.send(b"Hello from server")
+
+    stream.close()
+    logging.debug("Closed connection")
     exit()

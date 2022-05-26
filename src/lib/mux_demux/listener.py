@@ -1,15 +1,28 @@
+import queue
 import threading
 import logging
-from stream import (
+from .stream import (
     socket,
-    MTByteStream,
     MuxDemuxStream,
     extract_packet,
     PACKET_SIZE,
     time,
 )
+from ..utils import MTByteStream
 
 logger = logging.getLogger(__name__)
+
+
+class MTQueueWrapper:
+    def __init__(self, queue):
+        self.queue = queue
+
+    def sendto(self, data, addr):
+        self.queue.put((data, addr))
+        return len(data)
+
+    def get(self, block=True, timeout=None):
+        return self.queue.get(block=block, timeout=timeout)
 
 
 class MuxDemuxListener:
@@ -20,7 +33,10 @@ class MuxDemuxListener:
         self.accept_addr = None
         self.bytestreams = None
         self.accept_socket = None
+        self.queue_to_send = MTQueueWrapper(queue.Queue())
+
         self.accept_thread_handle = threading.Thread(target=self.accept_thread)
+        self.send_thread_handle = threading.Thread(target=self.send_thread)
 
     def bind(self, bind_addr):
         logger.info("Binding listener")
@@ -28,6 +44,15 @@ class MuxDemuxListener:
         self.queue_size = 0
         self.waiting_connections = []
         self.bytestreams = {}
+
+    def send_thread(self):
+        while True:
+            (packet_to_send, addr) = self.queue_to_send.get()
+            bytes_sent = 0
+            while bytes_sent < len(packet_to_send):
+                bytes_sent += self.accept_socket.sendto(
+                    packet_to_send[bytes_sent :], addr
+                )
 
     def accept_thread(self):
         logger.debug("Starting accepter thread")
@@ -64,8 +89,9 @@ class MuxDemuxListener:
                 addr = self.waiting_connections.pop(0)
                 logger.info("Accepted connection from {}".format(addr))
                 new_stream = MuxDemuxStream()
+
                 new_stream.from_listener(
-                    self.bytestreams[addr], self.accept_socket, addr
+                    self.bytestreams[addr], self.queue_to_send, addr
                 )
                 return new_stream
             else:
@@ -81,3 +107,4 @@ class MuxDemuxListener:
         accept_socket.bind(self.bind_addr)
         self.accept_socket = accept_socket
         self.accept_thread_handle.start()
+        self.send_thread_handle.start()

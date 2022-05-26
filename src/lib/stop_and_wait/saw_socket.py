@@ -86,8 +86,13 @@ class SAWSocket:
                 self.handle_info(packet)
             elif packet.type == ACK:
                 self.handle_ack(packet)
+            elif packet.type == FIN:
+                self.handle_fin(packet)
+            elif packet.type == FINACK:
+                self.handle_finack(packet)
             else:
                 logger.error("Received unknown packet type")
+                raise Exception("Received unknown packet type")
 
     def handle_info(self, packet):
         if self.status == NOT_CONNECTED:
@@ -148,6 +153,21 @@ class SAWSocket:
             logger.debug("Receiving ACK packet")
             self.ack_queue.put(packet)
 
+    def handle_fin(self, packet):
+        if self.status != CONNECTED:
+            logger.error("Receiving FIN packet while not connected")
+        else:
+            logger.debug("Receiving FIN packet")
+            self.socket.send_all(Packet.finack().encode())
+            self.status = DISCONNECTING
+
+    def handle_finack(self, packet):
+        if self.status != DISCONNECTING:
+            logger.error("Receiving FINACK packet while not disconnecting")
+        else:
+            logger.debug("Receiving FINACK packet")
+            self.ack_queue.put(packet)
+
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
 
@@ -183,3 +203,27 @@ class SAWSocket:
                 return info_body_bytes
             else:
                 return b""
+
+    def close(self):
+        if self.status == CONNECTED:
+            logger.debug("Disconnecting")
+            self.status = DISCONNECTING
+            self.socket.send_all(Packet.fin().encode())
+            logger.debug("Waiting for FINACK packet")
+            while True:
+                try:
+                    finack = self.ack_queue.get(timeout=10)
+                    logger.debug("Received FINACK packet")
+                    break
+                except queue.Empty:
+                    logger.error("Timeout waiting for FINACK packet, sending again")
+            self.status = DISCONNECTED
+            self.socket.close()
+        elif self.status == NOT_CONNECTED or self.status == DISCONNECTING:
+            logger.debug("Closing socket")
+            self.socket.close()
+        else:
+            logger.error("Trying to close socket while not connected")
+            raise Exception(
+                f"Trying to close socket while not connected (status {self.status})"
+            )

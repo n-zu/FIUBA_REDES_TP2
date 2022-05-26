@@ -15,3 +15,6 @@ if __name__ == "__main__":
         data += socket.recv(4096)
 
     logging.debug(f"Received {data.decode()} from server")
+
+    socket.close()
+    logging.debug("Closed connection")

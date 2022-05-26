@@ -3,7 +3,7 @@ import threading
 import time
 import logging
 
-from lib.utils import MTByteStream
+from ..utils import MTByteStream
 
 MAGIC_WORD = "ROSTOV"
 PACKET_SIZE = 2 ** 15
@@ -28,25 +28,28 @@ class MuxDemuxStream:
         self.send_socket = None
         self.send_addr = None
         self.recv_socket = None
+        # Only for stream created with connect()
         self.recv_thread_handle = None
         self.queue_timeout = None
+        self.queue_block = False
 
     def connect(self, send_addr):
         self.send_addr = send_addr
         self.bytestream = MTByteStream()
         self.recv_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.send_socket = self.recv_socket
-        self.recv_thread_handle = threading.Thread(target=self.receiver_thread)
+        self.recv_thread_handle = threading.Thread(target=self.recv_thread)
         self.recv_thread_handle.start()
 
     def from_listener(self, bytestream, send_socket, send_addr):
-        logger.debug("Starting stream for listener with {}".format(send_socket))
+        logger.debug("Starting stream for listener")
         self.send_socket = send_socket
         self.send_addr = send_addr
         self.bytestream = bytestream
 
-    def receiver_thread(self):
+    def recv_thread(self):
         logger.debug("Starting receiver thread")
+        self.recv_socket.settimeout(1)
         while True:
             try:
                 data, addr = self.recv_socket.recvfrom(PACKET_SIZE)
@@ -74,11 +77,14 @@ class MuxDemuxStream:
     def send_all(self, data):
         bytes_sent = 0
         while bytes_sent < len(data):
-            bytes_sent += self.send(data[bytes_sent:])
+            tmp = self.send(data[bytes_sent:])
+            print("SEND RETURN:", tmp)
+            bytes_sent += tmp
+            #bytes_sent += self.send(data[bytes_sent:])
         return bytes_sent
 
     def recv(self, buff_size):
-        data = self.bytestream.get_bytes(buff_size, self.queue_timeout)
+        data = self.bytestream.get_bytes(buff_size, self.queue_timeout, block=self.queue_block)
         return data
 
     def recv_exact(self, buff_size):
@@ -92,3 +98,13 @@ class MuxDemuxStream:
 
     def settimeout(self, timeout):
         self.queue_timeout = timeout
+
+    def setblocking(self, blocking):
+        self.queue_block = blocking
+
+    def close(self):
+        logger.debug("Closing stream")
+        # TODO: send event to stop recv thread
+        if self.recv_thread_handle:
+            self.recv_thread_handle.join()
+            self.recv_socket.close()

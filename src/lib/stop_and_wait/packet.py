@@ -88,8 +88,12 @@ class Packet:
             return packet_bytes
         elif self.type == ACK:
             return ACK.encode("utf-8")
+        elif self.type == FIN:
+            return FIN.encode("utf-8")
+        elif self.type == FINACK:
+            return FINACK.encode("utf-8")
         else:
-            raise Exception("Unknown packet type")
+            raise Exception(f"Unknown packet type ({self.type})")
 
     @classmethod
     def divide_buffer(cls, buffer, packet_size):
@@ -97,11 +101,14 @@ class Packet:
         for i in range(0, math.ceil(len(buffer) / packet_size)):
             packet = cls()
             packet.type = INFO
-            packet.headers["length"] = packet_size
-            if i == math.ceil(len(buffer) / packet_size) - 1:
-                packet.headers["length"] = len(buffer[i * packet_size:])
             packet.headers["packet_number"] = i
-            packet.body = buffer[i * packet_size : (i + 1) * packet_size]
+            if i < math.ceil(len(buffer) / packet_size) - 1:
+                packet.body = buffer[i * packet_size:(i + 1) * packet_size]
+                packet.headers["length"] = packet_size
+            else:
+                packet.body = buffer[i * packet_size:]
+                packet.headers["length"] = len(buffer[i * packet_size:])
+
             packets.append(packet)
 
         return packets
@@ -110,4 +117,16 @@ class Packet:
     def connect(cls):
         packet = cls()
         packet.type = CONNECT
+        return packet
+
+    @classmethod
+    def fin(cls):
+        packet = cls()
+        packet.type = FIN
+        return packet
+
+    @classmethod
+    def finack(cls):
+        packet = cls()
+        packet.type = FINACK
         return packet
