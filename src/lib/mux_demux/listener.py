@@ -1,6 +1,6 @@
 import threading
 import logging
-from stream import (
+from .stream import (
     socket,
     MTByteStream,
     MuxDemuxStream,

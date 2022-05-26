@@ -1,6 +1,6 @@
 from lib.mux_demux.stream import MuxDemuxStream
 import logging
-from packet import Packet
+from src.lib.selective_repeat.packet import Packet, ACK, INFO, CONNECT, CONNACK
 import queue
 import socket
 from lib.utils import MTByteStream
@@ -9,11 +9,6 @@ import threading
 logger = logging.getLogger(__name__)
 
 CONNACK_WAIT_TIMEOUT = 500
-
-CONNECT = "0"
-CONNACK = "1"
-INFO = "2"
-ACK = "3"
 
 # No envie el CONNECT (si soy socket) ni lo recibi (si soy listener)
 NOT_CONNECTED = "NOT_CONNECTED"
