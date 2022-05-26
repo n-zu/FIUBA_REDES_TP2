@@ -6,12 +6,7 @@
 
 ## Tests
 
-Para ejecutar los tests:
-
-```
-cd src
-python3 -m pytest
-```
+Para ejecutar los tests, ejecutar el comando `pytest`
 
 > Nota: Para ejecutar `test_rdt_listener.py` y `test_saw.py`:
 >
@@ -20,7 +15,6 @@ python3 -m pytest
 > python3 -m tests.test_rdt_listener
 > python3 -m tests.test_saw
 > ```
->
 
 ## Draft
 
