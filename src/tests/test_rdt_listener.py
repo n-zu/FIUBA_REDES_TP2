@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     time.sleep(1)
     stream = listener.accept()
-    logging.debug(f"Accepted new connection")
+    logging.debug("Accepted new connection")
     # stream.send(b"Hello from server")
     data = b""
     while data != b"Hello World, this is a test, but a longer one":
