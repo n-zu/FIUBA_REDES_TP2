@@ -1,6 +1,6 @@
 import logging
 
-from lib.mux_demux.listener import MuxDemuxListener, MuxDemuxStream
+from lib.mux_demux.listener import MuxDemuxListener
 from lib.stop_and_wait.saw_socket import SAWSocket
 from lib.selective_repeat.sr_socket import SRSocket
 

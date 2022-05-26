@@ -1,6 +1,13 @@
 import threading
 import logging
-from .stream import *
+from stream import (
+    socket,
+    MTByteStream,
+    MuxDemuxStream,
+    extract_packet,
+    PACKET_SIZE,
+    time,
+)
 
 logger = logging.getLogger(__name__)
 

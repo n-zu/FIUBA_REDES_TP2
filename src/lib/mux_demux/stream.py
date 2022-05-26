@@ -62,9 +62,8 @@ class MuxDemuxStream:
                 data = extract_packet(data)
                 if addr != self.send_addr:
                     raise Exception(
-                        "Received packet from invalid address {} - Expected {}".format(
-                            addr, self.send_addr
-                        )
+                        "Received packet from invalid address {} - Expected {}"
+                        .format(addr, self.send_addr)
                     )
                 self.bytestream.put_bytes(data)
             except socket.timeout:
