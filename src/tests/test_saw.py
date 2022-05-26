@@ -9,3 +9,9 @@ if __name__ == "__main__":
     socket = SAWSocket()
     socket.connect(("127.0.0.1", 1234))
     socket.send(b"Hello World, this is a test, but a longer one")
+
+    data = b""
+    while data != b"Hello from server":
+        data += socket.recv(4096)
+
+    logging.debug(f"Received {data.decode()} from server")
