@@ -2,15 +2,9 @@ import logging
 
 from lib.mux_demux.listener import MuxDemuxListener
 from lib.stop_and_wait.saw_socket import SAWSocket
+from lib.selective_repeat.sr_socket import SRSocket
 
 logger = logging.getLogger(__name__)
-
-CONNECT = "0"
-CONNACK = "1"
-PACKET = "2"
-ACK = "3"
-
-PACKET_SIZE = 4096
 
 STOP_AND_WAIT = "stop_and_wait"
 SELECTIVE_REPEAT = "selective_repeat"

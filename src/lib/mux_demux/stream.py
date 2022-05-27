@@ -87,20 +87,25 @@ class MuxDemuxStream:
         while bytes_sent < len(data):
             tmp = self.send(data[bytes_sent:])
             bytes_sent += tmp
-            #bytes_sent += self.send(data[bytes_sent:])
+            # bytes_sent += self.send(data[bytes_sent:])
         return bytes_sent
 
     def recv(self, buff_size):
-        data = self.bytestream.get_bytes(buff_size, self.queue_timeout, block=self.queue_block)
+        data = self.bytestream.get_bytes(
+            buff_size, self.queue_timeout, block=self.queue_block
+        )
         return data
 
     def recv_exact(self, buff_size):
         data = b""
+        start = time.time()
         while True:
             data += self.recv(buff_size - len(data))
             if len(data) == buff_size:
                 return data
             else:
+                if time.time() - start > self.queue_timeout:
+                    raise TimeoutError("Timeout reading from stream")
                 time.sleep(0.1)
 
     def settimeout(self, timeout):

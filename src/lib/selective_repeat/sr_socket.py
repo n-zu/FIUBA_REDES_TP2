@@ -1,6 +1,16 @@
 from lib.mux_demux.stream import MuxDemuxStream
 import logging
-from src.lib.selective_repeat.packet import Packet, ACK, INFO, CONNECT, CONNACK
+from lib.selective_repeat.packet import (
+    Packet,
+    Info,
+    Ack,
+    Connect,
+    Connack,
+    ACK,
+    INFO,
+    CONNECT,
+    CONNACK,
+)
 import queue
 import socket
 from lib.utils import MTByteStream
@@ -8,7 +18,12 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-CONNACK_WAIT_TIMEOUT = 500
+CONNACK_WAIT_TIMEOUT = 1.5
+CONNACK_RETRIES = 3
+
+MAX_SIZE = 1024
+
+STOP_CHECK_INTERVAL = 0.1
 
 # No envie el CONNECT (si soy socket) ni lo recibi (si soy listener)
 NOT_CONNECTED = "NOT_CONNECTED"
@@ -18,65 +33,143 @@ CONNECTING = "CONNECTING"
 # Soy Socket de listener, y recibi el CONNECT
 CONNECTED = "CONNECTED"
 
+# Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
+WINDOW_SIZE = 100
+ACK_NUMBERS = 4294967296
+
+
+class AckedNumber:
+    def __init__(self, number):
+        self.number = number
+
+    def __lt__(self, other):
+        # Si entra al if, esta wrappeando los acks (ej.: 4294967295 < 10,
+        # porque me tiene que llegar el ack del 4294967295 antes que el del 10)
+        if other.number + ACK_NUMBERS - self.number < ACK_NUMBERS / 2:
+            return True
+
+        return self.number < other.number
+
+
+# Cuenta los paquetes on-flight y bloquea el get() hasta que haya
+# espacio en la window
+class AckNumberProvider:
+    def __init__(self):
+        self.next = WINDOW_SIZE
+        self.channel = queue.SimpleQueue()
+        for i in range(WINDOW_SIZE):
+            self.channel.put(i)
+
+    def get(self):
+        return self.channel.get()
+
+    def push(self):
+        self.channel.put(self.next)
+        self.next += 1
+        self.next %= ACK_NUMBERS
+
+
+# Hace ACK a los INFO recibidos y los envia por la queue
+class BlockAcker:
+    def __init__(self, socket, queue):
+        self.last_received = None
+        self.blocks = {}
+        self.socket = socket
+        self.queue = queue
+
+    def __send_stored(self):
+        i = self.last_received
+        while i in self.blocks:
+            self.queue.put_bytes(self.blocks[i].body())
+            self.blocks.pop(i)
+            self.last_received = i
+            i += 1
+
+    def received(self, packet):
+        if (
+            self.last_received is None
+            or (self.last_received + 1) % ACK_NUMBERS == packet.number()
+        ):
+            self.last_received = packet.number()
+            self.blocks[packet.number()] = packet
+            self.__send_stored()
+        else:
+            self.blocks[packet.number()] = packet
+
+        self.socket.send_all(Ack(self.last_received).encode())
+
 
 class SRSocket:
     def __init__(self):
         self.socket = None
-        self.packet_thread_handler = None
-        self.expected_packet_number = 0
-
-        self.is_from_listener = None
-        self.status = NOT_CONNECTED
-
-        self.ack_queue = queue.Queue()
-        self.info_bytestream = None
-
-    def from_listener(self, mux_demux_socket):
-        self.is_from_listener = True
-        self.socket = mux_demux_socket
-
         self.packet_thread_handler = threading.Thread(
             target=self.packet_handler
         )
-        self.packet_thread_handler.start()
+        self.is_from_listener = None
+        self.status = NOT_CONNECTED
+
+        self.number_provider = AckNumberProvider()
+        self.acked = queue.PriorityQueue()
         self.info_bytestream = MTByteStream()
+        self.stop_flag = threading.Event()
+        self.acker = None
+
+    def from_listener(self, mux_demux_socket):
+        logger.debug("Creating new SRSocket from listener")
+        self.is_from_listener = True
+        self.socket = mux_demux_socket
+        self.acker = BlockAcker(self.socket, self.info_bytestream)
+        self.packet_thread_handler.start()
+
+    def stop(self):
+        self.stop_flag.set()
+        self.packet_thread_handler.join()
+        print("\033[96m" + "Stopped!" + "\033[0m")
 
     def connect(self, addr):
         self.is_from_listener = False
         logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
         self.socket = MuxDemuxStream()
+        self.acker = BlockAcker(self.socket, self.info_bytestream)
         self.socket.connect(addr)
-        # self.socket.setblocking(False)
         self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
-        while True:
+        for _ in range(CONNACK_RETRIES):
             try:
                 logger.debug("Sending connect packet")
-                self.socket.send_all(Packet.connect().encode())
+                self.socket.send_all(Connect().encode())
                 logger.debug("Waiting for connack packet")
                 packet = Packet.read_from_stream(self.socket)
                 if packet.type == CONNACK:
                     self.status = CONNECTED
+                    self.socket.send_all(
+                        Info(self.number_provider.get()).encode()
+                    )
                     break
                 else:
-                    logger.error(
-                        "Received unexpected packet type (expected CONNACK)"
+                    raise Exception(
+                        "Received unexpected packet type from peer"
                     )
             except socket.timeout:
-                logger.debug("Time out waiting for CONNACK, sending again")
+                logger.debug("Timed out waiting for CONNACK, sending again")
+
+        if self.status != CONNECTED:
+            raise Exception("Could not initialize connectiion")
+
         logger.debug("Connected")
-        self.packet_thread_handler = threading.Thread(
-            target=self.packet_handler
-        )
         self.packet_thread_handler.start()
 
     def packet_handler(self):
         logger.debug("Packet handler started")
-        while True:
-            packet = Packet.read_from_stream(self.socket)
-            logger.debug(
-                f"Received packet {packet.type} with headers                "
-                f" {packet.headers} and body {packet.body}"
-            )
+        self.socket.settimeout(STOP_CHECK_INTERVAL)
+
+        while not self.stop_flag.is_set():
+            print("\033[96m" + "Iterating..." + "\033[0m")
+            try:
+                packet = Packet.read_from_stream(self.socket)
+            except TimeoutError:
+                continue
+            print("\033[96m" + "Iterating2..." + "\033[0m")
+            logger.debug(f"Received packet of type {packet.type}")
             if packet.type == CONNECT:
                 self.handle_connect(packet)
             elif packet.type == CONNACK:
@@ -90,73 +183,43 @@ class SRSocket:
 
     def handle_info(self, packet):
         if self.status == NOT_CONNECTED:
-            # logger.error("Received INFO packet while not connected")
-            raise Exception("Received INFO packet while not connected")
+            logger.error("Received INFO packet while not connected")
         elif self.status == CONNECTING:
             # Confirmo que ya se recibio el CONNACK
             self.status = CONNECTED
 
-        if self.expected_packet_number == packet.headers["packet_number"]:
-            logger.debug(
-                "Received expected INFO packet (number %d)"
-                % packet.headers["packet_number"]
-            )
-            self.socket.send_all(Packet.ack().encode())
-            self.info_bytestream.put_bytes(packet.body)
-            self.expected_packet_number += 1
-        elif (
-            packet.headers["packet_number"] == self.expected_packet_number - 1
-        ):
-            logger.debug("Received INFO retransmission")
-            self.socket.send_all(Packet.ack().encode())
-        else:
-            logger.error(
-                "Received unexpected INFO packet,                 dropping"
-                " (expected %s, received %s)"
-                % (
-                    self.expected_packet_number,
-                    packet.headers["packet_number"],
-                )
-            )
-
-            raise Exception(
-                "Received unexpected INFO packet,                 dropping"
-                " (expected %s, received %s)"
-                % (
-                    self.expected_packet_number,
-                    packet.headers["packet_number"],
-                )
-            )
+        self.acker.received(packet)
 
     def handle_connect(self, packet):
         if self.is_from_listener:
             if self.status == NOT_CONNECTED or self.status == CONNECTING:
                 self.status = CONNECTING
-                self.socket.send_all(Packet.connack().encode())
+                self.socket.send_all(Connack().encode())
             else:  # self.status == CONNECTED
-                logger.error("Received connect packet while already connected")
+                logger.debug(
+                    "Received connect packet while already connected."
+                )
+
         else:  # socket from client
-            logger.error("Received connect packet from server")
+            logger.error(
+                "Received CONNECT packet when I was the one who"
+                " initiated the connection"
+            )
 
     def handle_connack(self, packet):
-        if self.is_from_listener:
-            logger.error("Received connack packet being socket from listener")
-        else:
-            if self.status == CONNECTING:
-                self.status = CONNECTED
-                logger.debug("Connected")
-            else:
-                logger.error(
-                    "Received connack packet while not connecting (status: %s)"
-                    % self.status
-                )
+        logger.debug(
+            "Received unexpected CONNACK packet, resending empty INFO package"
+            " to confirm conection"
+        )
+        self.socket.send_all(Info(self.number_provider.get()).encode())
 
     def handle_ack(self, packet):
         if self.status != CONNECTED:
             logger.error("Receiving ACK packet while not connected")
         else:
             logger.debug("Receiving ACK packet")
-            self.ack_queue.put(packet)
+            self.number_provider.push()
+            self.acked.put(packet.number())
 
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
@@ -165,40 +228,16 @@ class SRSocket:
             logger.error("Trying to send data while not connected")
         else:
             logger.debug("Sending data")
-            packets = Packet.divide_buffer(buffer, 4)
+            packets = Info.from_buffer(buffer, MAX_SIZE)
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
-                logger.debug(
-                    "Sending packet %d" % packet.headers["packet_number"]
-                )
-                while True:
-                    self.socket.send_all(packet.encode())
-                    try:
-                        # ack = self.ack_queue.get(timeout=15)
-                        logger.debug("Received ACK packet")
-                        break
-                    except queue.Empty:
-                        logger.error(
-                            "Timeout waiting for ACK packet, sending again"
-                        )
+                packet.set_number(self.number_provider.get())
+                logger.debug("Sending packet %d" % packet.number())
+                self.socket.send_all(packet.encode())
 
-    def recv(self, buff_size):
-        if self.status == NOT_CONNECTED:
-            logger.error("Trying to receive data while not connected")
-            raise Exception(
-                "Trying to receive data while not connected (status"
-                f" {self.status})"
-            )
-        else:
-            logger.debug("Receiving data (buff_size %d)" % buff_size)
-            info_body_bytes = self.info_bytestream.get_bytes(
-                buff_size, timeout=1
-            )
-            if len(info_body_bytes) > 0:
-                logger.debug(
-                    "Received INFO packet (%d bytes)" % len(info_body_bytes)
-                )
-                return info_body_bytes
-            else:
-                return b""
+    def recv(self, buff_size, timeout=None):
+        logger.debug("Receiving data (buff_size %d)" % buff_size)
+        info_body_bytes = self.info_bytestream.get_bytes(buff_size, timeout)
+        logger.debug("Received INFO packet (%d bytes)" % len(info_body_bytes))
+        return info_body_bytes

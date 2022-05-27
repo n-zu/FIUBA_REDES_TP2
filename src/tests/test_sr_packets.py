@@ -3,6 +3,8 @@ from lib.selective_repeat.packet import (
     Packet,
     Ack,
     Info,
+    Connack,
+    Connect,
     CONNECT,
     CONNACK,
     INFO,
@@ -15,7 +17,7 @@ def test_should_create_connect_packet():
     mock = Mock()
     mock.recv.return_value = bytes
     mock.recv_exact.return_value = bytes
-    assert Packet.read_from_stream(mock).packet_type == CONNECT
+    assert Packet.read_from_stream(mock).type == CONNECT
 
 
 def test_should_create_connack_packet():
@@ -23,7 +25,7 @@ def test_should_create_connack_packet():
     mock = Mock()
     mock.recv.side = bytes
     mock.recv_exact.return_value = bytes
-    assert Packet.read_from_stream(mock).packet_type == CONNACK
+    assert Packet.read_from_stream(mock).type == CONNACK
 
 
 def test_should_create_ack_packet():
@@ -33,7 +35,7 @@ def test_should_create_ack_packet():
         int(43).to_bytes(4, byteorder="big"),
     ]
     packet = Packet.read_from_stream(mock)
-    assert packet.packet_type == ACK
+    assert packet.type == ACK
     assert type(packet) == Ack
     assert packet.number() == 43
 
@@ -48,7 +50,7 @@ def test_should_create_info_packet():
         arr,
     ]
     packet = Packet.read_from_stream(mock)
-    assert packet.packet_type == INFO
+    assert packet.type == INFO
     assert type(packet) == Info
     assert packet.number() == 4523
     assert packet.body() == arr
@@ -56,22 +58,29 @@ def test_should_create_info_packet():
 
 def test_create_info_packet():
     packet = Info(366, bytes(b"hello :)"))
-    assert packet.packet_type == INFO
+    assert packet.type == INFO
     assert packet.number() == 366
     assert packet.body() == b"hello :)"
 
 
+def test_create_empty_info_packet():
+    packet = Info(366, None)
+    assert packet.type == INFO
+    assert packet.number() == 366
+    assert packet.body() is None
+
+
 def test_create_ack_packet():
     packet = Ack(111)
-    assert packet.packet_type == ACK
+    assert packet.type == ACK
     assert packet.number() == 111
 
 
 def test_create_connect_packet():
-    packet = Packet(CONNECT)
-    assert packet.packet_type == CONNECT
+    packet = Connect()
+    assert packet.type == CONNECT
 
 
 def test_create_connack_packet():
-    packet = Packet(CONNACK)
-    assert packet.packet_type == CONNACK
+    packet = Connack()
+    assert packet.type == CONNACK
