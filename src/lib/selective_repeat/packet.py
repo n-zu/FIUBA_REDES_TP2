@@ -7,6 +7,15 @@ INFO = b"2"
 ACK = b"3"
 
 
+def get_type_from_byte(byte):
+    return {
+        b"0": "CONNECT",
+        b"1": "CONNACK",
+        b"2": "INFO",
+        b"3": "ACK",
+    }.get(byte, None)
+
+
 class Packet:
     def __init__(self, packet_type=None):
         self.type = packet_type
@@ -31,7 +40,9 @@ class Packet:
         raise ValueError(f"Unknown packet type: {type}")
 
     def encode(self):
-        logger.debug(f"Encoding packet of type {self.type}")
+        logger.debug(
+            f"Encoding packet of type {get_type_from_byte(self.type)}"
+        )
         return self.type
 
 

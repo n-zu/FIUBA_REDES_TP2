@@ -32,7 +32,7 @@ def test_should_receive_data():
 def test_should_receive_random():
     port = 57121 + 1
     n = 2
-    data = b"un paquete" * n
+    data = b"12345678" * n
     listener = RDTListener("selective_repeat")
     listener.bind(("127.0.0.1", port))
     listener.listen(1)

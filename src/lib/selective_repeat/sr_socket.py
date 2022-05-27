@@ -9,6 +9,7 @@ from lib.selective_repeat.packet import (
     INFO,
     CONNECT,
     CONNACK,
+    get_type_from_byte,
 )
 import queue
 import socket
@@ -36,10 +37,6 @@ CONNECTED = "CONNECTED"
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
 WINDOW_SIZE = 100
 ACK_NUMBERS = 4294967296
-
-
-def print_color(msg):
-    print(f"\033[96m{msg}\033[0m")
 
 
 # Cuenta los paquetes on-flight y bloquea el get() hasta que haya
@@ -106,7 +103,7 @@ class AckRegister:
         self.acks = set()
 
     def acknowledge(self, packet):
-        print_color(f"Acknowledged {packet.number()}")
+        logger.info(f"Acknowledged {packet.number()}")
         with self.lock:
             self.acks.add(packet.number())
 
@@ -115,7 +112,7 @@ class AckRegister:
             if packet.number() in self.acks:
                 self.acks.remove(packet.number())
                 return True
-            print_color(f"Packet {packet.number()} not acknowledged")
+            logger.info(f"Packet {packet.number()} not acknowledged")
             return False
 
 
@@ -187,7 +184,9 @@ class SRSocket:
                 packet = Packet.read_from_stream(self.socket)
             except TimeoutError:
                 continue
-            logger.debug(f"Received packet of type {packet.type}")
+            logger.debug(
+                f"Received packet of type {get_type_from_byte(packet.type)}"
+            )
             if packet.type == CONNECT:
                 self.handle_connect(packet)
             elif packet.type == CONNACK:
@@ -232,7 +231,7 @@ class SRSocket:
         self.socket.send_all(Info(self.number_provider.get()).encode())
 
     def handle_ack(self, packet):
-        print_color(f"Got ACK of packet {packet.number()}")
+        logger.info(f"Got ACK of packet {packet.number()}")
         if self.status != CONNECTED:
             logger.error("Receiving ACK packet while not connected")
         else:
