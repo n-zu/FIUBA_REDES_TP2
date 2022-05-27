@@ -1,5 +1,8 @@
 import logging
 import math
+import socket
+
+from lib.stop_and_wait.exceptions import ProtocolViolation
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +34,9 @@ class Packet:
 
     @classmethod
     def read_from_stream(cls, stream):
-        logger.debug("Reading packet from stream")
         packet = cls()
         packet_type_raw = stream.recv_exact(1)
+
         packet_type = packet_type_raw.decode("utf-8")
         if packet_type == CONNECT:
             if len(packet_type_raw) != 1:
@@ -47,16 +50,17 @@ class Packet:
             return packet
         elif packet_type == INFO:
             packet.type = INFO
-            packet.headers["length"] = int.from_bytes(
-                stream.recv_exact(16), byteorder="big"
-            )
-            packet.headers["packet_number"] = int.from_bytes(
-                stream.recv_exact(4), byteorder="big"
-            )
-            logger.debug(
-                "Reading packet body (length: %d)", packet.headers["length"]
-            )
-            packet.body = stream.recv_exact(packet.headers["length"])
+            try:
+                packet.headers["length"] = int.from_bytes(
+                    stream.recv_exact(16), byteorder="big"
+                )
+                packet.headers["packet_number"] = int.from_bytes(
+                    stream.recv_exact(4), byteorder="big"
+                )
+                packet.body = stream.recv_exact(packet.headers["length"])
+            except socket.timeout:
+                raise ProtocolViolation("Timeout while reading packet")
+
             return packet
         elif packet_type == ACK:
             if len(packet_type_raw) != 1:

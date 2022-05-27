@@ -1,6 +1,6 @@
 import logging
 
-from lib.mux_demux.listener import MuxDemuxListener
+from lib.mux_demux.mux_demux_listener import MuxDemuxListener
 from lib.stop_and_wait.saw_socket import SAWSocket
 
 logger = logging.getLogger(__name__)
@@ -11,6 +11,7 @@ PACKET = "2"
 ACK = "3"
 
 PACKET_SIZE = 4096
+ACCEPT_TIMEOUT = 5
 
 STOP_AND_WAIT = "stop_and_wait"
 SELECTIVE_REPEAT = "selective_repeat"
@@ -35,7 +36,7 @@ class RDTListener:
 
     def accept(self):
         new_mux_demux_stream = self.mux_demux_listener.accept()
-
+        print("New stream accepted:", new_mux_demux_stream)
         if self.rdt_method == STOP_AND_WAIT:
             new_rdt_stream = SAWSocket()
         elif self.rdt_method == SELECTIVE_REPEAT:
@@ -43,6 +44,7 @@ class RDTListener:
         else:
             raise NotImplementedError
         new_rdt_stream.from_listener(new_mux_demux_stream)
+
         return new_rdt_stream
 
     def close(self):

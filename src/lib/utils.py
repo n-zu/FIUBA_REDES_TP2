@@ -1,4 +1,5 @@
 import queue
+import socket
 
 
 class MTByteStream:
@@ -13,8 +14,9 @@ class MTByteStream:
                 data += self.stream.get(block=block, timeout=timeout)
             return data
         except queue.Empty:
+            if len(data) == 0:
+                raise socket.timeout
             return data
-
     def put_bytes(self, data):
         for byte_to_put in data:
             self.stream.put(byte_to_put.to_bytes(1, "big"))
