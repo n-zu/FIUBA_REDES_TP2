@@ -1,7 +1,5 @@
-import logging
 import math
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 CONNECT = b"0"
 CONNACK = b"1"

@@ -1,7 +1,6 @@
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.rdt_listener.rdt_listener import RDTListener
 from threading import Thread
-import logging
 
 
 def __client(port, data):
@@ -9,9 +8,6 @@ def __client(port, data):
     client.connect(("127.0.0.1", port))
     client.send(data)
     client.stop()
-
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 def test_should_receive_data():
@@ -35,7 +31,8 @@ def test_should_receive_data():
 
 def test_should_receive_random():
     port = 57121 + 1
-    data = b"pls_work"
+    n = 2
+    data = b"un paquete" * n
     listener = RDTListener("selective_repeat")
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
@@ -44,7 +41,7 @@ def test_should_receive_random():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(8)
+    output = socket.recv(8 * n)
     socket.stop()
     thread.join()
     listener.close()
@@ -53,4 +50,4 @@ def test_should_receive_random():
 
 
 if __name__ == "__main__":
-    test_should_receive_data()
+    test_should_receive_random()

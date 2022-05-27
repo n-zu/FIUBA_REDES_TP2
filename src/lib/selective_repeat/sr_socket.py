@@ -1,5 +1,4 @@
 from lib.mux_demux.stream import MuxDemuxStream
-import logging
 from lib.selective_repeat.packet import (
     Packet,
     Info,
@@ -15,8 +14,7 @@ import queue
 import socket
 from lib.utils import MTByteStream
 import threading
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 CONNACK_WAIT_TIMEOUT = 1.5
 CONNACK_RETRIES = 3
