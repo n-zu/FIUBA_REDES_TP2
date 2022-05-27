@@ -96,8 +96,8 @@ class InfoPacket(Packet):
     def split(mtu, buffer, initial_number=0):
         number_of_packets = math.ceil(len(buffer) / mtu)
         packets = []
-        for packet_number in range(initial_number, initial_number + number_of_packets):
-            packet = InfoPacket(packet_number, buffer[packet_number * mtu:(packet_number + 1) * mtu])
+        for i in range(number_of_packets):
+            packet = InfoPacket(i + initial_number, buffer[i * mtu:(i + 1) * mtu])
             packets.append(packet)
         return packets
 

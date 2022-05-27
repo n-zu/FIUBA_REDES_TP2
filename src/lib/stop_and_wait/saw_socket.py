@@ -1,6 +1,7 @@
 import queue
 import threading
 import sys
+import time
 
 from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.utils import MTByteStream
@@ -47,9 +48,10 @@ class SAWSocket:
         self.socket = None
         self.packet_thread_handler = None
         self.expected_packet_number = 0
+        self.next_packet_number_to_send = 0
 
         self.timeout = None
-        self.block = False
+        self.block = True
 
         self.is_from_listener = None
         self.status = MTStatus()
@@ -88,7 +90,8 @@ class SAWSocket:
                 logger.debug("Waiting for connack packet")
 
                 PacketFactory.read_connack(self.socket)
-                self.socket.send_all(bytes(InfoPacket(number=0, body=b"")))
+                self.socket.send_all(bytes(InfoPacket(number=self.next_packet_number_to_send, body=b"")))
+                self.next_packet_number_to_send += 1
                 self.status.set(CONNECTED)
                 logger.debug("Setting event")
                 self.connect_event.set()
@@ -140,7 +143,7 @@ class SAWSocket:
 
         if self.expected_packet_number == packet.number:
             logger.debug(
-                f"Received expected INFO packet (Nº {packet.number})"
+                f"Received expected INFO packet (Nº {packet.number}) (data: {packet.body})"
             )
             self.socket.send_all(bytes(AckPacket()))
             self.info_bytestream.put_bytes(packet.body)
@@ -204,7 +207,7 @@ class SAWSocket:
         logger.debug("Received ACK packet")
 
         if not self.status.is_equal(CONNECTED):
-            logger.error("Receiving ACK packet while not connected")
+            logger.error(f"Receiving ACK packet while not connected (status: {self.status})")
         else:
             logger.debug("Receiving ACK packet")
             self.ack_queue.put(packet)
@@ -235,12 +238,13 @@ class SAWSocket:
             logger.error("Trying to send data while not connected")
         else:
             logger.debug("Sending data")
-            packets = InfoPacket.split(4, buffer, initial_number=0)
+            packets = InfoPacket.split(4, buffer, initial_number=self.next_packet_number_to_send)
             logger.debug("Fragmented buffer into %d packets" % len(packets))
+            self.next_packet_number_to_send += len(packets)
 
             for packet in packets:
                 logger.debug(
-                    f"Sending packet Nº {packet.number}"
+                    f"Sending packet Nº {packet.number}, data: {packet.body}"
                 )
                 while True:
                     self.socket.send_all(bytes(packet))
@@ -261,7 +265,7 @@ class SAWSocket:
                 f" {self.status})"
             )
         else:
-            logger.debug("Receiving data (buff_size %d)" % buff_size)
+            #logger.debug(f"Receiving data (buff_size {buff_size}), timeout {self.socket.gettimeout()}, blocking {self.socket.getblocking()}")
             try:
                 info_body_bytes = self.info_bytestream.get_bytes(
                     buff_size, timeout=self.timeout, block=self.block

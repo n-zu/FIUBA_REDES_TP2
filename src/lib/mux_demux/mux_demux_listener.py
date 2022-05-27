@@ -132,7 +132,7 @@ class MuxDemuxListener:
     def send_thread(self):
         while True:
             try:
-                (data, addr) = self.queue_to_send.get(timeout=5)
+                (data, addr) = self.queue_to_send.get(timeout=1)
                 # Me indica que el socket se desconecto
                 if data is None:
                     logger.debug(f"Removing addr {addr} from bytestreams")
@@ -148,13 +148,11 @@ class MuxDemuxListener:
                     logger.debug("Stopping send thread")
                     break
                 else:
-                    logger.debug("stop_event not set, send_thread continuing")
+                    continue
 
     def recv_thread(self):
         logger.debug("Starting accepter thread")
-        self.accept_socket.settimeout(5)
-        #self.accept_socket.setblocking(False)
-        #self.accept_socket.setblocking(True)
+        self.accept_socket.settimeout(1)
         while True:
             try:
                 data, addr = self.accept_socket.recvfrom(PACKET_SIZE)
@@ -163,7 +161,6 @@ class MuxDemuxListener:
                     logger.debug("Stopping recv thread")
                     break
                 else:
-                    logger.debug("stop_event not set, recv_thread continuing")
                     continue
 
             data = extract_packet(data)

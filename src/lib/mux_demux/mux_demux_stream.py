@@ -70,7 +70,6 @@ class MuxDemuxStream:
                     )
                 self.bytestream.put_bytes(data)
             except socket.timeout:
-                logger.debug("Timeout while receiving data")
                 if self.close_event.is_set():
                     logger.debug("Receiver thread exiting")
                     return
@@ -97,7 +96,7 @@ class MuxDemuxStream:
         return bytes_sent
 
     def recv(self, buff_size):
-        #logger.debug("Receiving {} bytes, timeout: {} block: {}".format(buff_size, self.queue_timeout, self.queue_block))
+        logger.debug("Receiving {} bytes, timeout: {} block: {}".format(buff_size, self.queue_timeout, self.queue_block))
         data = b""
         while len(data) < buff_size:
             new_data = self.bytestream.get_bytes(buff_size - len(data), self.queue_timeout, block=self.queue_block)
@@ -131,4 +130,8 @@ class MuxDemuxStream:
             self.recv_socket.close()
         self.send_socket.close()
 
+    def gettimeout(self):
+        return self.queue_timeout
 
+    def getblocking(self):
+        return self.queue_block
