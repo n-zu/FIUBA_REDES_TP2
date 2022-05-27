@@ -1,17 +1,13 @@
-import logging
-import math
 import queue
-import socket
 import threading
-import time
+import sys
 
 from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.utils import MTByteStream
-from lib.stop_and_wait.packet import Packet
 
 from .packet import *
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 CONNACK_WAIT_TIMEOUT = 0.1
 ACK_WAIT_TIMEOUT = 0.1
@@ -52,6 +48,9 @@ class SAWSocket:
         self.packet_thread_handler = None
         self.expected_packet_number = 0
 
+        self.timeout = None
+        self.block = False
+
         self.is_from_listener = None
         self.status = MTStatus()
 
@@ -65,7 +64,6 @@ class SAWSocket:
 
     def from_listener(self, mux_demux_socket):
         self.is_from_listener = True
-        print(self.socket)
         self.socket = mux_demux_socket
 
         self.packet_thread_handler = threading.Thread(
@@ -78,7 +76,7 @@ class SAWSocket:
 
     def connect(self, addr):
         self.is_from_listener = False
-        logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
+        logger.info(f"Connecting to {addr[0]}:{addr[1]}")
         self.socket = MuxDemuxStream()
         self.socket.connect(addr)
         self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
@@ -86,21 +84,24 @@ class SAWSocket:
         while True:
             try:
                 logger.debug("Sending connect packet")
-                self.socket.send_all(Packet.connect().encode())
+                self.socket.send_all(bytes(ConnectPacket()))
                 logger.debug("Waiting for connack packet")
 
-                packet = Packet.read_from_stream(self.socket)
-                if packet.type == CONNACK:
-                    self.status.set(CONNECTED)
-                    logger.debug("Setting event")
-                    self.connect_event.set()
-                    break
-                else:
-                    logger.error(
-                        "Received unexpected packet type (expected CONNACK)"
-                    )
+                PacketFactory.read_connack(self.socket)
+                self.socket.send_all(bytes(InfoPacket(number=0, body=b"")))
+                self.status.set(CONNECTED)
+                logger.debug("Setting event")
+                self.connect_event.set()
+                self.socket.settimeout(None)
+                break
             except socket.timeout:
                 logger.debug("Time out waiting for CONNACK, sending again")
+            except ProtocolViolation:
+                logger.error("Protocol violation, closing connection")
+                self.socket.close()
+                self.status.set(DISCONNECTED)
+                return
+
         logger.debug("Connected")
         self.packet_thread_handler = threading.Thread(
             target=self.packet_handler
@@ -110,30 +111,18 @@ class SAWSocket:
 
     def packet_handler(self):
         logger.debug("Packet handler started")
+        self.socket.settimeout(1)
+        self.socket.setblocking(True)
         while True:
             try:
-                packet = Packet.read_from_stream(self.socket)
-                if packet.type == CONNECT:
-                    self.handle_connect(packet)
-                elif packet.type == CONNACK:
-                    self.handle_connack(packet)
-                elif packet.type == INFO:
-                    self.handle_info(packet)
-                elif packet.type == ACK:
-                    self.handle_ack(packet)
-                elif packet.type == FIN:
-                    self.handle_fin(packet)
-                elif packet.type == FINACK:
-                    self.handle_finack(packet)
-                else:
-                    logger.error("Received unknown packet type")
-                    raise Exception("Received unknown packet type")
-
+                packet = PacketFactory.read_from_stream(self.socket)
+                packet.be_handled_by(self)
             except socket.timeout:
                 # check if stop event is set
                 if self.stop_event.is_set():
-                    logger.debug("Stop event is set")
-                    break
+                    logger.debug("Exiting packet handler thread")
+                    return
+
             except ProtocolViolation:
                 logger.error("Protocol violation, closing connection")
                 self.socket.close()
@@ -146,24 +135,24 @@ class SAWSocket:
             raise Exception("Received INFO packet while not connected")
         elif self.status.is_equal(CONNECTING):
             # Confirmo que ya se recibio el CONNACK
+            logger.debug("Received INFO packet while connecting, now fully connected")
             self.status.set(CONNECTED)
 
-        if self.expected_packet_number == packet.headers["packet_number"]:
+        if self.expected_packet_number == packet.number:
             logger.debug(
-                "Received expected INFO packet (number %d)"
-                % packet.headers["packet_number"]
+                f"Received expected INFO packet (Nº {packet.number})"
             )
-            self.socket.send_all(Packet.ack().encode())
+            self.socket.send_all(bytes(AckPacket()))
             self.info_bytestream.put_bytes(packet.body)
             self.expected_packet_number += 1
         # TODO: hay que chequear que sea MENOR, porque puede pasar que el paquete
         # se demore en la red
         # Tambien hay que reiniciar el contador cada cierto tiempo
         elif (
-            packet.headers["packet_number"] == self.expected_packet_number - 1
+            packet.number == self.expected_packet_number - 1
         ):
-            logger.debug("Received INFO retransmission")
-            self.socket.send_all(Packet.ack().encode())
+            logger.debug(f"Received INFO retransmission. Expecting {self.expected_packet_number}, received {packet.number}")
+            self.socket.send_all(bytes(AckPacket()))
         else:
             logger.error(
                 "Received unexpected INFO packet, dropping (expected %s,"
@@ -190,7 +179,7 @@ class SAWSocket:
                 self.status.set(CONNECTING)
                 self.connect_event.set()
                 logger.debug("Sending CONNACK")
-                self.socket.send_all(Packet.connack().encode())
+                self.socket.send_all(bytes(ConnackPacket()))
             else:  # self.status == CONNECTED
                 logger.error("Received connect packet while already connected")
         else:  # socket from client
@@ -223,11 +212,11 @@ class SAWSocket:
     def handle_fin(self, packet):
         logger.debug("Received FIN packet")
 
-        if not self.status.is_equal(CONNECTED):
-            logger.error("Receiving FIN packet while not connected")
+        if self.status.is_equal(DISCONNECTED):
+            logger.error(f"Receiving FIN packet but it was already disconnected")
         else:
             logger.debug("Receiving FIN packet")
-            self.socket.send_all(Packet.finack().encode())
+            self.socket.send_all(bytes(FinackPacket()))
             self.status.set(DISCONNECTING)
 
     def handle_finack(self, packet):
@@ -246,15 +235,15 @@ class SAWSocket:
             logger.error("Trying to send data while not connected")
         else:
             logger.debug("Sending data")
-            packets = Packet.divide_buffer(buffer, 4)
+            packets = InfoPacket.split(4, buffer, initial_number=0)
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
                 logger.debug(
-                    "Sending packet %d" % packet.headers["packet_number"]
+                    f"Sending packet Nº {packet.number}"
                 )
                 while True:
-                    self.socket.send_all(packet.encode())
+                    self.socket.send_all(bytes(packet))
                     try:
                         ack = self.ack_queue.get(timeout=ACK_WAIT_TIMEOUT)
                         logger.debug("Received ACK packet")
@@ -275,7 +264,7 @@ class SAWSocket:
             logger.debug("Receiving data (buff_size %d)" % buff_size)
             try:
                 info_body_bytes = self.info_bytestream.get_bytes(
-                    buff_size, timeout=2
+                    buff_size, timeout=self.timeout, block=self.block
                 )
                 if len(info_body_bytes) > 0:
                     logger.debug(
@@ -292,7 +281,7 @@ class SAWSocket:
         if self.status.is_equal(CONNECTED):
             logger.debug("Disconnecting")
             self.status.set(DISCONNECTING)
-            self.socket.send_all(Packet.fin().encode())
+            self.socket.send_all(bytes(FinPacket()))
             logger.debug("Waiting for FINACK packet")
             while True:
                 try:
@@ -302,16 +291,15 @@ class SAWSocket:
                 except queue.Empty:
                     logger.error("Timeout waiting for FINACK packet, sending again")
             self.status.set(DISCONNECTING)
-            self.socket.close()
-        elif self.status.is_equal(NOT_CONNECTED) or self.status.is_equal(DISCONNECTING):
-
-            logger.debug("Closing socket")
+            self.stop_event.set()
             self.socket.close()
         else:
-            logger.error("Trying to close socket while not connected")
-            raise Exception(
-                f"Trying to close socket while not connected (status {self.status})"
-            )
+            logger.debug(f"Closing socket (Status: {self.status})")
+            self.stop_event.set()
+            self.socket.close()
 
     def settimeout(self, timeout):
-        self.socket.settimeout(timeout)
+        self.timeout = timeout
+
+    def setblocking(self, block):
+        self.block = block

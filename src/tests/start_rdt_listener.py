@@ -1,10 +1,19 @@
 import logging
+import threading
 import time
+from loguru import logger
+import sys
 
 from lib.rdt_listener.rdt_listener import RDTListener, STOP_AND_WAIT
 from lib.mux_demux.mux_demux_listener import MuxDemuxListener
 
-logging.basicConfig(level=logging.DEBUG)
+
+config = {
+    "handlers": [
+        {"sink": sys.stdout, "level": "DEBUG"},
+    ],
+}
+logger.configure(**config)
 
 
 if __name__ == "__main__":
@@ -13,8 +22,15 @@ if __name__ == "__main__":
     listener.bind(("127.0.0.1", 1234))
     listener.listen(1)
 
+    logger.debug("Waiting for connection")
     stream = listener.accept()
-    stream.settimeout(None)
+    time.sleep(5)
+    stream.close()
+    listener.close()
+
+
+    """
+    stream.settimeout(1)
     logging.debug("Accepted new connection")
     # stream.send(b"Hello from server")
     data = b""
@@ -22,10 +38,13 @@ if __name__ == "__main__":
         logging.debug(f"Received {data.decode()} from client")
         data += stream.recv(4096)
 
-    logging.debug(f"Received {data.decode()} from client")
+    logger.debug(f"Received {data.decode()} from client")
     #stream.send(b"Hello from server")
+
+    stream.send(b"Hello from server")
 
     stream.close()
     logging.debug("Closed connection")
     time.sleep(2)
     exit()
+    """
