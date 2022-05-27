@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 CONNACK_WAIT_TIMEOUT = 1.5
 CONNACK_RETRIES = 3
 
+ACK_TIMEOUT = 1.5
+
 MAX_SIZE = 1024
 
 STOP_CHECK_INTERVAL = 0.1
@@ -36,19 +38,6 @@ CONNECTED = "CONNECTED"
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
 WINDOW_SIZE = 100
 ACK_NUMBERS = 4294967296
-
-
-class AckedNumber:
-    def __init__(self, number):
-        self.number = number
-
-    def __lt__(self, other):
-        # Si entra al if, esta wrappeando los acks (ej.: 4294967295 < 10,
-        # porque me tiene que llegar el ack del 4294967295 antes que el del 10)
-        if other.number + ACK_NUMBERS - self.number < ACK_NUMBERS / 2:
-            return True
-
-        return self.number < other.number
 
 
 # Cuenta los paquetes on-flight y bloquea el get() hasta que haya
@@ -96,7 +85,24 @@ class BlockAcker:
         else:
             self.blocks[packet.number()] = packet
 
-        self.socket.send_all(Ack(self.last_received).encode())
+        self.socket.send_all(Ack(packet.number()).encode())
+
+
+class Acker:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.acks = set()
+
+    def acknowledge(self, packet):
+        with self.lock:
+            self.acks.add(packet.number())
+
+    def pop_acknowledged(self, packet):
+        with self.lock:
+            if packet.number() in self.acks:
+                self.acks.remove(packet.number())
+                return True
+            return False
 
 
 class SRSocket:
@@ -109,10 +115,10 @@ class SRSocket:
         self.status = NOT_CONNECTED
 
         self.number_provider = AckNumberProvider()
-        self.acked = queue.PriorityQueue()
         self.info_bytestream = MTByteStream()
         self.stop_flag = threading.Event()
-        self.acker = None
+        self.acker = Acker()
+        self.socket_lock = threading.Lock()
 
     def from_listener(self, mux_demux_socket):
         logger.debug("Creating new SRSocket from listener")
@@ -218,6 +224,18 @@ class SRSocket:
             self.number_provider.push()
             self.acked.put(packet.number())
 
+    def __check_ack(self, packet):
+        if self.acked.pop_acknoledged(packet):
+            return
+        self.__send_packet(packet)
+
+    def __send_packet(self, packet):
+        packet.set_number(self.number_provider.get())
+        logger.debug("Sending packet %d" % packet.number())
+        with self.socket_lock:
+            self.socket.send_all(packet.encode())
+        threading.Timer(ACK_TIMEOUT, self.__check_ack, [packet])
+
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
 
@@ -229,9 +247,7 @@ class SRSocket:
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
-                packet.set_number(self.number_provider.get())
-                logger.debug("Sending packet %d" % packet.number())
-                self.socket.send_all(packet.encode())
+                self.__send_packet(packet)
 
     def recv(self, buff_size, timeout=None):
         logger.debug("Receiving data (buff_size %d)" % buff_size)

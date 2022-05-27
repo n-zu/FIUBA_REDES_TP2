@@ -41,10 +41,18 @@ class Connect(Packet):
     def __init__(self):
         super().__init__(CONNECT)
 
+    @classmethod
+    def decode_from_stream(cls, stream):
+        return cls()
+
 
 class Connack(Packet):
     def __init__(self):
         super().__init__(CONNACK)
+
+    @classmethod
+    def decode_from_stream(cls, stream):
+        return cls()
 
 
 class Ack(Packet):
