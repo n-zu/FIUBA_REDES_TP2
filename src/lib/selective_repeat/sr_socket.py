@@ -124,7 +124,6 @@ class SRSocket:
     def stop(self):
         self.stop_flag.set()
         self.packet_thread_handler.join()
-        print("\033[96m" + "Stopped!" + "\033[0m")
 
     def connect(self, addr):
         self.is_from_listener = False
@@ -163,12 +162,10 @@ class SRSocket:
         self.socket.settimeout(STOP_CHECK_INTERVAL)
 
         while not self.stop_flag.is_set():
-            print("\033[96m" + "Iterating..." + "\033[0m")
             try:
                 packet = Packet.read_from_stream(self.socket)
             except TimeoutError:
                 continue
-            print("\033[96m" + "Iterating2..." + "\033[0m")
             logger.debug(f"Received packet of type {packet.type}")
             if packet.type == CONNECT:
                 self.handle_connect(packet)
