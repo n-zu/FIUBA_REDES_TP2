@@ -18,25 +18,13 @@ logger.configure(**config)
 if __name__ == "__main__":
     socket = SAWSocket()
     socket.connect(("127.0.0.1", 1234))
-    """
-    socket.send(b"Hello from client, this is a test, please ignore")
+    socket.settimeout(1)
 
     data = b""
-    while data != b"Hello from server":
+    while data != b"Hello from server, this is a test, please ignore":
         data += socket.recv(4096)
-    logger.debug(f"Received {data.decode()} from server")
 
-    time.sleep(5)
-    """
-    time.sleep(10)
+    logger.success(f"Received expected data: {data}")
+
     socket.close()
-    logger.debug("Closed connection")
-
-    """
-        data = b""
-        while data != b"Hello from server":
-            logging.debug(f"Received {data.decode()} from client")
-            data += socket.recv(4096)
-
-        logging.debug(f"Received {data.decode()} from server")
-    """
+    logger.success("Closed connection")

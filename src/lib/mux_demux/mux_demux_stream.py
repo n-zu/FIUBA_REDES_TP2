@@ -96,7 +96,7 @@ class MuxDemuxStream:
         return bytes_sent
 
     def recv(self, buff_size):
-        logger.debug("Receiving {} bytes, timeout: {} block: {}".format(buff_size, self.queue_timeout, self.queue_block))
+        #logger.debug("Receiving {} bytes, timeout: {} block: {}".format(buff_size, self.queue_timeout, self.queue_block))
         data = b""
         while len(data) < buff_size:
             new_data = self.bytestream.get_bytes(buff_size - len(data), self.queue_timeout, block=self.queue_block)

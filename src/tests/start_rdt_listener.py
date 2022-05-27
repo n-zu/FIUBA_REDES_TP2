@@ -1,3 +1,4 @@
+import random
 import logging
 import threading
 import time
@@ -16,35 +17,27 @@ config = {
 logger.configure(**config)
 
 
-if __name__ == "__main__":
+def new_handle_client(stream):
+    stream.send(b"Hello from server, this is a test, please ignore")
+    time.sleep(random.random() * 5)
+    stream.close()
+
+
+def main():
     listener = RDTListener(STOP_AND_WAIT)
 
     listener.bind(("127.0.0.1", 1234))
-    listener.listen(1)
+    listener.listen(5)
+    threads = []
+    for i in range(5):
+        stream = listener.accept()
+        thread = threading.Thread(target=new_handle_client, args=(stream, ))
+        thread.start()
+        threads.append(thread)
 
-    logger.debug("Waiting for connection")
-    stream = listener.accept()
-    time.sleep(5)
-    stream.close()
+    for thread in threads:
+        thread.join()
     listener.close()
 
-
-    """
-    stream.settimeout(1)
-    logging.debug("Accepted new connection")
-    # stream.send(b"Hello from server")
-    data = b""
-    while data != b"Hello from client, this is a test, please ignore":
-        logging.debug(f"Received {data.decode()} from client")
-        data += stream.recv(4096)
-
-    logger.debug(f"Received {data.decode()} from client")
-    #stream.send(b"Hello from server")
-
-    stream.send(b"Hello from server")
-
-    stream.close()
-    logging.debug("Closed connection")
-    time.sleep(2)
-    exit()
-    """
+if __name__ == "__main__":
+    main()

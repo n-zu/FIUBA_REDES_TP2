@@ -234,7 +234,7 @@ class SAWSocket:
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
 
-        if not self.status.is_equal(CONNECTED):
+        if not self.status.is_equal(CONNECTED) and not self.status.is_equal(CONNECTING):
             logger.error("Trying to send data while not connected")
         else:
             logger.debug("Sending data")
