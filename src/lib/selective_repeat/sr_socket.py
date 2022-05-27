@@ -40,6 +40,10 @@ WINDOW_SIZE = 100
 ACK_NUMBERS = 4294967296
 
 
+def print_color(msg):
+    print(f"\033[96m{msg}\033[0m")
+
+
 # Cuenta los paquetes on-flight y bloquea el get() hasta que haya
 # espacio en la window
 class AckNumberProvider:
@@ -104,6 +108,7 @@ class AckRegister:
         self.acks = set()
 
     def acknowledge(self, packet):
+        print_color(f"Acknowledged {packet.number()}")
         with self.lock:
             self.acks.add(packet.number())
 
@@ -112,6 +117,7 @@ class AckRegister:
             if packet.number() in self.acks:
                 self.acks.remove(packet.number())
                 return True
+            print_color(f"Packet {packet.number()} not acknowledged")
             return False
 
 
@@ -228,6 +234,7 @@ class SRSocket:
         self.socket.send_all(Info(self.number_provider.get()).encode())
 
     def handle_ack(self, packet):
+        print_color(f"Got ACK of packet {packet.number()}")
         if self.status != CONNECTED:
             logger.error("Receiving ACK packet while not connected")
         else:
@@ -240,8 +247,9 @@ class SRSocket:
             return
         self.__send_packet(packet)
 
-    def __send_packet(self, packet):
-        packet.set_number(self.number_provider.get())
+    def __send_packet(self, packet, number=None):
+        if number is not None:
+            packet.set_number(number)
         logger.debug("Sending packet %d" % packet.number())
         with self.socket_lock:
             self.socket.send_all(packet.encode())
@@ -258,7 +266,7 @@ class SRSocket:
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
-                self.__send_packet(packet)
+                self.__send_packet(packet, self.number_provider.get())
 
     def recv(self, buff_size, timeout=None):
         logger.debug("Receiving data (buff_size %d)" % buff_size)
