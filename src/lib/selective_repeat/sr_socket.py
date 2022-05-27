@@ -49,7 +49,8 @@ class AckNumberProvider:
             self.channel.put(i)
 
     def get(self):
-        return self.channel.get()
+        n = self.channel.get()
+        return n
 
     def push(self):
         self.channel.put(self.next)
@@ -68,10 +69,10 @@ def gt_packets(packet_number, other_packet_number):
 
 # Hace ACK a los INFO recibidos y los envia por la queue
 class BlockAcker:
-    def __init__(self, socket, upstream_channel):
+    def __init__(self, sender, upstream_channel):
         self.last_received = None
         self.blocks = {}
-        self.socket = socket
+        self.sender = sender
         self.upstream_channel = upstream_channel
 
     def __send_stored(self):
@@ -94,7 +95,7 @@ class BlockAcker:
         elif gt_packets(packet.number(), self.last_received):
             self.blocks[packet.number()] = packet
 
-        self.socket.send_all(Ack(packet.number()).encode())
+        self.sender(Ack(packet.number()).encode())
 
 
 class AckRegister:
@@ -103,7 +104,6 @@ class AckRegister:
         self.acks = set()
 
     def acknowledge(self, packet):
-        logger.info(f"Acknowledged {packet.number()}")
         with self.lock:
             self.acks.add(packet.number())
 
@@ -112,7 +112,6 @@ class AckRegister:
             if packet.number() in self.acks:
                 self.acks.remove(packet.number())
                 return True
-            logger.info(f"Packet {packet.number()} not acknowledged")
             return False
 
 
@@ -130,13 +129,15 @@ class SRSocket:
         self.stop_flag = threading.Event()
         self.ack_register = AckRegister()
         self.socket_lock = threading.Lock()
-        self.acker = None
+        self.acker = BlockAcker(self.__send, self.upstream_channel)
+
+    def __role(self):
+        return "[SERVER] " if self.is_from_listener else "[CLIENT] "
 
     def from_listener(self, mux_demux_socket):
         logger.debug("Creating new SRSocket from listener")
         self.is_from_listener = True
         self.socket = mux_demux_socket
-        self.acker = BlockAcker(self.socket, self.upstream_channel)
         self.packet_thread_handler.start()
 
     def stop(self):
@@ -147,7 +148,6 @@ class SRSocket:
         self.is_from_listener = False
         logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
         self.socket = MuxDemuxStream()
-        self.acker = BlockAcker(self.socket, self.upstream_channel)
         self.socket.connect(addr)
         self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
         for _ in range(CONNACK_RETRIES):
@@ -231,7 +231,6 @@ class SRSocket:
         self.socket.send_all(Info(self.number_provider.get()).encode())
 
     def handle_ack(self, packet):
-        logger.info(f"Got ACK of packet {packet.number()}")
         if self.status != CONNECTED:
             logger.error("Receiving ACK packet while not connected")
         else:
@@ -244,17 +243,19 @@ class SRSocket:
             return
         self.__send_packet(packet)
 
+    def __send(self, data):
+        with self.socket_lock:
+            self.socket.send_all(data)
+
     def __send_packet(self, packet, number=None):
         if number is not None:
             packet.set_number(number)
         logger.debug("Sending packet %d" % packet.number())
-        with self.socket_lock:
-            self.socket.send_all(packet.encode())
+        self.__send(packet.encode())
         threading.Timer(ACK_TIMEOUT, self.__check_ack, [packet]).start()
 
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
-
         if self.status != CONNECTED:
             logger.error("Trying to send data while not connected")
         else:
@@ -266,7 +267,7 @@ class SRSocket:
                 self.__send_packet(packet, self.number_provider.get())
 
     def recv(self, buff_size, timeout=None):
-        logger.debug("Receiving data (buff_size %d)" % buff_size)
+        logger.debug("Trying to receive data (buff_size %d)" % buff_size)
         info_body_bytes = self.upstream_channel.get_bytes(buff_size, timeout)
-        logger.debug("Received INFO packet (%d bytes)" % len(info_body_bytes))
+        logger.debug("Received data (%d bytes)" % len(info_body_bytes))
         return info_body_bytes

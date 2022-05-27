@@ -21,7 +21,7 @@ def test_should_receive_data():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(4)
+    output = socket.recv(len(data))
     socket.stop()
     thread.join()
     listener.close()
@@ -29,10 +29,9 @@ def test_should_receive_data():
     assert output == data
 
 
-def test_should_receive_random():
+def test_should_receive_data_big():
     port = 57121 + 1
-    n = 2
-    data = b"12345678" * n
+    data = b"pls_work" * 10000
     listener = RDTListener("selective_repeat")
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
@@ -41,7 +40,7 @@ def test_should_receive_random():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(8 * n)
+    output = socket.recv(len(data))
     socket.stop()
     thread.join()
     listener.close()
@@ -50,4 +49,4 @@ def test_should_receive_random():
 
 
 if __name__ == "__main__":
-    test_should_receive_random()
+    test_should_receive_data()
