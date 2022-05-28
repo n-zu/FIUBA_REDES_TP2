@@ -146,8 +146,6 @@ class FinPacket(Packet):
 class FinackPacket(Packet):
     _type = 5
 
-
-
     @property
     def type(self):
         return self._type
@@ -167,7 +165,8 @@ class FinackPacket(Packet):
 def read_packet_type(stream):
     logger.debug("Reading packet type")
     packet_byte_raw = stream.recv_exact(1)
-    logger.debug("Packet type read: {}".format(packet_byte_raw))
+    packet_byte = int.from_bytes(packet_byte_raw, byteorder="big")
+    logger.debug("Packet type read: {}".format(packet_byte))
 
     return int.from_bytes(packet_byte_raw, byteorder="big")
 
@@ -198,6 +197,12 @@ class PacketFactory:
             return ConnackPacket.read_from_stream(stream)
         raise ValueError(f"Expected Connack Packet (type {ConnackPacket._type}), got type {packet_type}")
 
+    @classmethod
+    def read_ack(cls, stream):
+        packet_type = read_packet_type(stream)
+        if AckPacket._type == packet_type:
+            return AckPacket.read_from_stream(stream)
+        raise ValueError(f"Expected Ack Packet (type {AckPacket._type}), got type {packet_type}")
 
 """
 class Packet:

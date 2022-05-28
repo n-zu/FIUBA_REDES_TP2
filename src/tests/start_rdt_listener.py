@@ -29,7 +29,7 @@ def main():
     listener.bind(("127.0.0.1", 1234))
     listener.listen(5)
     threads = []
-    for i in range(5):
+    for i in range(1):
         stream = listener.accept()
         thread = threading.Thread(target=new_handle_client, args=(stream, ))
         thread.start()
