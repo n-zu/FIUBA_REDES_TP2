@@ -94,7 +94,8 @@ class BlockAcker:
         elif gt_packets(packet.number(), self.last_received):
             self.blocks[packet.number()] = packet
 
-        self.sender(Ack(packet.number()).encode())
+        logger.info(f"Sending ACK for packet {packet.description()}")
+        self.sender(packet.ack().encode())
 
 
 class AckRegister:
@@ -192,13 +193,7 @@ class SRSocket:
             except (TimeoutError, socket.timeout):
                 continue
 
-            logger.info(
-                "Received packet of type"
-                f" {Packet.get_type_from_byte(packet.type)}"
-                f" (number {packet.number()})"
-                if packet.type in [INFO, ACK]
-                else ""
-            )
+            logger.info(f"Received packet of type {packet.description()}")
             if packet.type == CONNECT:
                 self.handle_connect(packet)
             elif packet.type == CONNACK:
@@ -253,6 +248,11 @@ class SRSocket:
     def __check_ack(self, packet, send_attempt):
         if self.ack_register.pop_acknowledged(packet):
             return
+
+        logger.warning(
+            f"Packet with number {packet.number()} not acknowledged on time,"
+            f" resending it (attempt {send_attempt})"
+        )
         self.__send_packet(packet, send_attempt + 1)
 
     def __send(self, data):
@@ -260,7 +260,6 @@ class SRSocket:
             self.socket.send_all(data)
 
     def __send_packet(self, packet, attempts=0):
-        logger.debug("Sending packet %d" % packet.number())
         self.__send(packet.encode())
         timer = threading.Timer(
             ACK_TIMEOUT,
@@ -268,10 +267,11 @@ class SRSocket:
             [packet, attempts],
         )
         timer.name = f"Timer-{packet.number()}-{attempts}"
+        logger.info(f"Sending packet of type {packet.description()}")
         timer.start()
 
     def send(self, buffer):
-        logger.debug(f"Sending buffer {buffer}")
+        logger.debug(f"Sending buffer of length {len(buffer)}")
         if self.status != CONNECTED:
             logger.error("Trying to send data while not connected")
         else:

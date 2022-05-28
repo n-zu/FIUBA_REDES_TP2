@@ -50,5 +50,26 @@ def test_should_receive_data_big():
     assert output == data
 
 
+def test_should_receive_data_big_buggy():
+    port = 57121 + 2
+    data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
+    listener = RDTListener("selective_repeat", 0.20)
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    thread = Thread(target=__client, args=(port, data))
+    thread.start()
+    socket = listener.accept()
+
+    output = socket.recv(len(data))
+    # Como todavia no esta el FIN y FINACK hay que joinear
+    # el otro thread antes de cerrar este socket
+    thread.join()
+    socket.stop()
+    listener.close()
+
+    assert output == data
+
+
 if __name__ == "__main__":
-    test_should_receive_data_big()
+    test_should_receive_data_big_buggy()

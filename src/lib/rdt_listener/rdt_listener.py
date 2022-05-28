@@ -9,17 +9,16 @@ SELECTIVE_REPEAT = "selective_repeat"
 
 
 class RDTListener:
-    def __init__(self, rdt_method: str):
+    def __init__(self, rdt_method: str, buggyness_factor=0.0):
         self.rdt_method = rdt_method
         self.queue_size = 0
         self.recv_addr = None
-        self.mux_demux_listener = None
+        self.mux_demux_listener = MuxDemuxListener(buggyness_factor)
 
     def bind(self, recv_addr):
         logger.debug(f"bind({recv_addr})")
 
         self.recv_addr = recv_addr
-        self.mux_demux_listener = MuxDemuxListener()
         self.mux_demux_listener.bind(recv_addr)
 
     def listen(self, queue_size):

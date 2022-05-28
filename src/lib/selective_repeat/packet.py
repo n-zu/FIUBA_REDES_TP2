@@ -17,8 +17,11 @@ class Packet:
 
     @staticmethod
     def read_from_stream(stream):
-        logger.debug("Decoding packet from stream")
         packet_type = stream.recv_exact(1)
+        logger.debug(
+            "Decoding packet of type"
+            f" {Packet.get_type_from_byte(packet_type)} from stream"
+        )
         if packet_type == INFO:
             return Info.decode_from_stream(stream)
         if packet_type == ACK:
@@ -45,6 +48,9 @@ class Packet:
         )
         return self.type
 
+    def description(self):
+        return "PACKET"
+
 
 class Connect(Packet):
     def __init__(self):
@@ -54,6 +60,9 @@ class Connect(Packet):
     def decode_from_stream(cls, stream):
         return cls()
 
+    def description(self):
+        return "CONNECT"
+
 
 class Connack(Packet):
     def __init__(self):
@@ -62,6 +71,9 @@ class Connack(Packet):
     @classmethod
     def decode_from_stream(cls, stream):
         return cls()
+
+    def description(self):
+        return "CONNACK"
 
 
 class Ack(Packet):
@@ -81,6 +93,9 @@ class Ack(Packet):
 
     def number(self):
         return self.__number
+
+    def description(self):
+        return f"ACK (number {self.number()})"
 
 
 class Info(Packet):
@@ -130,3 +145,9 @@ class Info(Packet):
 
     def set_number(self, number):
         self.__number = number
+
+    def description(self):
+        return f"INFO (number {self.number()})"
+
+    def ack(self):
+        return Ack(self.number())
