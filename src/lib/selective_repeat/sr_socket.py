@@ -2,7 +2,6 @@ from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.selective_repeat.packet import (
     Packet,
     Info,
-    Ack,
     Connect,
     Connack,
     ACK,
@@ -144,7 +143,7 @@ class SRSocket:
         self.socket = mux_demux_socket
         self.packet_thread_handler.start()
 
-    def stop(self):
+    def close(self):
         self.stop_flag.set()
         self.packet_thread_handler.join()
         self.socket.close()

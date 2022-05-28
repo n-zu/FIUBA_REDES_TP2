@@ -90,7 +90,13 @@ class SAWSocket:
                 logger.debug("Waiting for connack packet")
 
                 PacketFactory.read_connack(self.socket)
-                self.socket.send_all(bytes(InfoPacket(number=self.next_packet_number_to_send, body=b"")))
+                self.socket.send_all(
+                    bytes(
+                        InfoPacket(
+                            number=self.next_packet_number_to_send, body=b""
+                        )
+                    )
+                )
                 self.next_packet_number_to_send += 1
                 self.status.set(CONNECTED)
                 logger.debug("Setting event")
@@ -138,12 +144,15 @@ class SAWSocket:
             raise Exception("Received INFO packet while not connected")
         elif self.status.is_equal(CONNECTING):
             # Confirmo que ya se recibio el CONNACK
-            logger.debug("Received INFO packet while connecting, now fully connected")
+            logger.debug(
+                "Received INFO packet while connecting, now fully connected"
+            )
             self.status.set(CONNECTED)
 
         if self.expected_packet_number == packet.number:
             logger.debug(
-                f"Received expected INFO packet (Nº {packet.number}) (data: {packet.body})"
+                f"Received expected INFO packet (Nº {packet.number}) (data:"
+                f" {packet.body})"
             )
             self.socket.send_all(bytes(AckPacket()))
             self.info_bytestream.put_bytes(packet.body)
@@ -151,10 +160,11 @@ class SAWSocket:
         # TODO: hay que chequear que sea MENOR, porque puede pasar que el paquete
         # se demore en la red
         # Tambien hay que reiniciar el contador cada cierto tiempo
-        elif (
-            packet.number == self.expected_packet_number - 1
-        ):
-            logger.debug(f"Received INFO retransmission. Expecting {self.expected_packet_number}, received {packet.number}")
+        elif packet.number == self.expected_packet_number - 1:
+            logger.debug(
+                "Received INFO retransmission. Expecting"
+                f" {self.expected_packet_number}, received {packet.number}"
+            )
             self.socket.send_all(bytes(AckPacket()))
         else:
             logger.error(
@@ -178,7 +188,9 @@ class SAWSocket:
         logger.debug("Received CONNECT packet")
 
         if self.is_from_listener:
-            if self.status.is_equal(NOT_CONNECTED) or self.status.is_equal(CONNECTING):
+            if self.status.is_equal(NOT_CONNECTED) or self.status.is_equal(
+                CONNECTING
+            ):
                 self.status.set(CONNECTING)
                 self.connect_event.set()
                 logger.debug("Sending CONNACK")
@@ -207,7 +219,10 @@ class SAWSocket:
         logger.debug("Received ACK packet")
 
         if not self.status.is_equal(CONNECTED):
-            logger.error(f"Receiving ACK packet while not connected (status: {self.status})")
+            logger.error(
+                "Receiving ACK packet while not connected (status:"
+                f" {self.status})"
+            )
         else:
             logger.debug("Receiving ACK packet")
             self.ack_queue.put(packet)
@@ -216,7 +231,9 @@ class SAWSocket:
         logger.debug("Received FIN packet")
 
         if self.status.is_equal(DISCONNECTED):
-            logger.error(f"Receiving FIN packet but it was already disconnected")
+            logger.error(
+                f"Receiving FIN packet but it was already disconnected"
+            )
         else:
             logger.debug("Receiving FIN packet")
             self.socket.send_all(bytes(FinackPacket()))
@@ -234,11 +251,15 @@ class SAWSocket:
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
 
-        if not self.status.is_equal(CONNECTED) and not self.status.is_equal(CONNECTING):
+        if not self.status.is_equal(CONNECTED) and not self.status.is_equal(
+            CONNECTING
+        ):
             logger.error("Trying to send data while not connected")
         else:
             logger.debug("Sending data")
-            packets = InfoPacket.split(4, buffer, initial_number=self.next_packet_number_to_send)
+            packets = InfoPacket.split(
+                1024, buffer, initial_number=self.next_packet_number_to_send
+            )
             logger.debug("Fragmented buffer into %d packets" % len(packets))
             self.next_packet_number_to_send += len(packets)
 
@@ -265,14 +286,15 @@ class SAWSocket:
                 f" {self.status})"
             )
         else:
-            #logger.debug(f"Receiving data (buff_size {buff_size}), timeout {self.socket.gettimeout()}, blocking {self.socket.getblocking()}")
+            # logger.debug(f"Receiving data (buff_size {buff_size}), timeout {self.socket.gettimeout()}, blocking {self.socket.getblocking()}")
             try:
                 info_body_bytes = self.info_bytestream.get_bytes(
                     buff_size, timeout=self.timeout, block=self.block
                 )
                 if len(info_body_bytes) > 0:
                     logger.debug(
-                        "Received INFO packet (%d bytes)" % len(info_body_bytes)
+                        "Received INFO packet (%d bytes)"
+                        % len(info_body_bytes)
                     )
                     return info_body_bytes
                 else:
@@ -293,7 +315,9 @@ class SAWSocket:
                     logger.debug("Received FINACK packet")
                     break
                 except queue.Empty:
-                    logger.error("Timeout waiting for FINACK packet, sending again")
+                    logger.error(
+                        "Timeout waiting for FINACK packet, sending again"
+                    )
             self.status.set(DISCONNECTING)
             self.stop_event.set()
             self.socket.close()

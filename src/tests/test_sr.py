@@ -7,7 +7,7 @@ def __client(port, data):
     client = SRSocket()
     client.connect(("127.0.0.1", port))
     client.send(data)
-    client.stop()
+    client.close()
 
 
 def test_should_receive_data():
@@ -24,8 +24,8 @@ def test_should_receive_data():
     socket = listener.accept()
 
     output = socket.recv(len(data))
-    socket.stop()
     thread.join()
+    socket.close()
     listener.close()
 
     assert output == data
@@ -43,8 +43,8 @@ def test_should_receive_data_big():
     socket = listener.accept()
 
     output = socket.recv(len(data))
-    socket.stop()
     thread.join()
+    socket.close()
     listener.close()
 
     assert output == data
@@ -65,7 +65,7 @@ def test_should_receive_data_big_buggy():
     # Como todavia no esta el FIN y FINACK hay que joinear
     # el otro thread antes de cerrar este socket
     thread.join()
-    socket.stop()
+    socket.close()
     listener.close()
 
     assert output == data
