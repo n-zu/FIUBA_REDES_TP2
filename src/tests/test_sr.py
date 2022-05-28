@@ -17,7 +17,9 @@ def test_should_receive_data():
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
 
-    thread = Thread(target=__client, args=(port, data))
+    thread = Thread(
+        target=__client, args=(port, data), name=f"Thread-test-port-{port}"
+    )
     thread.start()
     socket = listener.accept()
 
@@ -49,4 +51,4 @@ def test_should_receive_data_big():
 
 
 if __name__ == "__main__":
-    test_should_receive_data()
+    test_should_receive_data_big()

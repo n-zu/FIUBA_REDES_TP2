@@ -1,4 +1,4 @@
-from lib.mux_demux.stream import MuxDemuxStream
+from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.selective_repeat.packet import (
     Packet,
     Info,
@@ -9,7 +9,6 @@ from lib.selective_repeat.packet import (
     INFO,
     CONNECT,
     CONNACK,
-    get_type_from_byte,
 )
 import queue
 import socket
@@ -101,18 +100,25 @@ class BlockAcker:
 class AckRegister:
     def __init__(self):
         self.lock = threading.Lock()
-        self.acks = set()
+        self.unacknowledged = set()
+
+    def add_pending(self, packet):
+        with self.lock:
+            self.unacknowledged.add(packet.number())
 
     def acknowledge(self, packet):
         with self.lock:
-            self.acks.add(packet.number())
+            self.unacknowledged.remove(packet.number())
 
+    # Devuelve true si fue recibió Ack, false sino
     def pop_acknowledged(self, packet):
         with self.lock:
-            if packet.number() in self.acks:
-                self.acks.remove(packet.number())
-                return True
-            return False
+            return not packet.number() in self.unacknowledged
+
+    def have_unacknowledged(self):
+        with self.lock:
+            # print([x for x in self.acks])
+            return len(self.unacknowledged) > 0
 
 
 class SRSocket:
@@ -131,9 +137,6 @@ class SRSocket:
         self.socket_lock = threading.Lock()
         self.acker = BlockAcker(self.__send, self.upstream_channel)
 
-    def __role(self):
-        return "[SERVER] " if self.is_from_listener else "[CLIENT] "
-
     def from_listener(self, mux_demux_socket):
         logger.debug("Creating new SRSocket from listener")
         self.is_from_listener = True
@@ -143,6 +146,7 @@ class SRSocket:
     def stop(self):
         self.stop_flag.set()
         self.packet_thread_handler.join()
+        self.socket.close()
 
     def connect(self, addr):
         self.is_from_listener = False
@@ -152,15 +156,16 @@ class SRSocket:
         self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
         for _ in range(CONNACK_RETRIES):
             try:
-                logger.debug("Sending connect packet")
+                logger.info("Sending CONNECT packet")
                 self.socket.send_all(Connect().encode())
                 logger.debug("Waiting for connack packet")
                 packet = Packet.read_from_stream(self.socket)
                 if packet.type == CONNACK:
+                    logger.info("Received CONNACK packet")
                     self.status = CONNECTED
-                    self.socket.send_all(
-                        Info(self.number_provider.get()).encode()
-                    )
+                    packet = Info(self.number_provider.get())
+                    self.ack_register.add_pending(packet)
+                    self.socket.send_all(packet.encode())
                     break
                 else:
                     raise Exception(
@@ -179,13 +184,20 @@ class SRSocket:
         logger.debug("Packet handler started")
         self.socket.settimeout(STOP_CHECK_INTERVAL)
 
-        while not self.stop_flag.is_set():
+        while (
+            not self.stop_flag.is_set()
+        ) or self.ack_register.have_unacknowledged():
             try:
                 packet = Packet.read_from_stream(self.socket)
-            except TimeoutError:
+            except (TimeoutError, socket.timeout):
                 continue
-            logger.debug(
-                f"Received packet of type {get_type_from_byte(packet.type)}"
+
+            logger.info(
+                "Received packet of type"
+                f" {Packet.get_type_from_byte(packet.type)}"
+                f" (number {packet.number()})"
+                if packet.type in [INFO, ACK]
+                else ""
             )
             if packet.type == CONNECT:
                 self.handle_connect(packet)
@@ -238,21 +250,25 @@ class SRSocket:
             self.number_provider.push()
             self.ack_register.acknowledge(packet)
 
-    def __check_ack(self, packet):
+    def __check_ack(self, packet, send_attempt):
         if self.ack_register.pop_acknowledged(packet):
             return
-        self.__send_packet(packet)
+        self.__send_packet(packet, send_attempt + 1)
 
     def __send(self, data):
         with self.socket_lock:
             self.socket.send_all(data)
 
-    def __send_packet(self, packet, number=None):
-        if number is not None:
-            packet.set_number(number)
+    def __send_packet(self, packet, attempts=0):
         logger.debug("Sending packet %d" % packet.number())
         self.__send(packet.encode())
-        threading.Timer(ACK_TIMEOUT, self.__check_ack, [packet]).start()
+        timer = threading.Timer(
+            ACK_TIMEOUT,
+            self.__check_ack,
+            [packet, attempts],
+        )
+        timer.name = f"Timer-{packet.number()}-{attempts}"
+        timer.start()
 
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
@@ -264,7 +280,13 @@ class SRSocket:
             logger.debug("Fragmented buffer into %d packets" % len(packets))
 
             for packet in packets:
-                self.__send_packet(packet, self.number_provider.get())
+                packet.set_number(self.number_provider.get())
+                self.ack_register.add_pending(packet)
+                logger.debug(
+                    "Added pending acknowledgement for packet"
+                    f" {packet.number()}"
+                )
+                self.__send_packet(packet)
 
     def recv(self, buff_size, timeout=None):
         logger.debug("Trying to receive data (buff_size %d)" % buff_size)

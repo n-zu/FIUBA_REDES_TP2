@@ -17,6 +17,7 @@ class MTByteStream:
             if len(data) == 0:
                 raise socket.timeout
             return data
+
     def put_bytes(self, data):
         for byte_to_put in data:
             self.stream.put(byte_to_put.to_bytes(1, "big"))
