@@ -63,6 +63,9 @@ class Connect(Packet):
     def description(self):
         return "CONNECT"
 
+    def ack(self):
+        return Connack()
+
 
 class Connack(Packet):
     def __init__(self):
