@@ -1,3 +1,4 @@
+import pytest
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.rdt_listener.rdt_listener import RDTListener
 from threading import Thread
@@ -50,6 +51,7 @@ def test_should_receive_data_big():
     assert output == data
 
 
+@pytest.mark.slow
 def test_should_receive_data_big_buggy():
     port = 57121 + 2
     data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
@@ -57,7 +59,7 @@ def test_should_receive_data_big_buggy():
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
 
-    thread = Thread(target=__client, args=(port, data))
+    thread = Thread(target=__client, args=[port, data])
     thread.start()
     socket = listener.accept()
 
@@ -71,5 +73,42 @@ def test_should_receive_data_big_buggy():
     assert output == data
 
 
+def test_should_send_and_receive_data():
+    port = 57121 + 3
+    msg_1 = b"Client: Hello"
+    msg_2 = b"Server: Hello"
+    msg_3 = b"Client: Bye"
+
+    listener = RDTListener("selective_repeat")
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    def client(port):
+        client = SRSocket()
+        client.connect(("127.0.0.1", port))
+        client.send(msg_1)
+        cli_msg = client.recv(len(msg_2))
+        assert cli_msg == msg_2
+        client.send(msg_3)
+        client.close()
+
+    thread = Thread(target=client, args=[port])
+    thread.start()
+    socket = listener.accept()
+
+    srv_msg = socket.recv(len(msg_1))
+    assert srv_msg == msg_1
+
+    socket.send(msg_2)
+
+    srv_msg = socket.recv(len(msg_3))
+    assert srv_msg == msg_3
+    # Como todavia no esta el FIN y FINACK hay que joinear
+    # el otro thread antes de cerrar este socket
+    thread.join()
+    socket.close()
+    listener.close()
+
+
 if __name__ == "__main__":
-    test_should_receive_data_big_buggy()
+    test_should_send_and_receive_data()
