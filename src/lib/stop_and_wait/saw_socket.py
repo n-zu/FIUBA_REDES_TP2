@@ -1,17 +1,7 @@
-import queue
-import threading
-import sys
-import time
-
-from .socket.client import SAWSocketClient
-from .socket.server import SAWSocketServer
-
-from lib.mux_demux.mux_demux_stream import MuxDemuxStream
-from lib.utils import MTByteStream
-
-from .packet import *
-
-from loguru import logger
+from .socket.client.client import SAWSocketClient
+from .socket.client.states import ClientNotConnected
+from .socket.server.states import ServerNotConnected
+from .socket.server.server import SAWSocketServer
 
 
 class SAWSocket:
@@ -35,7 +25,7 @@ class SAWSocket:
     def connect(self, addr):
         if self.socket is not None:
             raise Exception("Already connected")
-        self.socket = SAWSocketClient()
+        self.socket = SAWSocketClient(ClientNotConnected(self))
         self.socket.connect(addr)
         self.socket.settimeout(self.timeout)
         self.socket.setblocking(self.block)
@@ -43,7 +33,7 @@ class SAWSocket:
     def from_listener(self, mux_demux_socket):
         if self.socket is not None:
             raise Exception("Already connected")
-        self.socket = SAWSocketServer()
+        self.socket = SAWSocketServer(ServerNotConnected(self))
         self.socket.from_listener(mux_demux_socket)
         self.socket.settimeout(self.timeout)
         self.socket.setblocking(self.block)

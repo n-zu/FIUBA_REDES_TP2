@@ -22,9 +22,9 @@ if __name__ == "__main__":
 
     data = b""
     while data != b"Hello from server, this is a test, please ignore":
-        print("AAA")
         data += socket.recv(4096)
-        print("BBB")
+        logger.critical(f"Received data: {data}")
+        time.sleep(0.5)
         logger.debug(data)
 
     logger.success(f"Received expected data: {data}")

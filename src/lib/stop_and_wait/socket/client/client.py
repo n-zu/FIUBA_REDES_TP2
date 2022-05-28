@@ -1,16 +1,15 @@
-import queue
 import threading
-from loguru import logger
 
-from lib.mux_demux.mux_demux_stream import MuxDemuxStream
+from .states import *
+from ....mux_demux.mux_demux_stream import MuxDemuxStream
 
-from .interface import SAWSocketInterface
-from ..exceptions import ProtocolViolation
-from ..packet import *
+from ..interface import SAWSocketInterface
+from ...exceptions import ProtocolViolation
+from ...packet import *
 
 
 # No envie el CONNECT (si soy socket) ni lo recibi (si soy listener)
-from ...utils import MTByteStream
+from ....utils import MTByteStream
 
 NOT_CONNECTED = "NOT_CONNECTED"
 # Soy Socket de listener, mande el CONNACK y ya recibi info
@@ -25,18 +24,17 @@ DISCONNECTED = "DISCONNECTED"
 
 
 class SAWSocketClient(SAWSocketInterface):
-    CONNACK_WAIT_TIMEOUT = 1
+    CONNACK_WAIT_TIMEOUT = 5
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, initial_state):
+        super().__init__(initial_state)
 
-    def connect(self, addr):
-        self.is_from_listener = False
-        logger.info(f"Connecting to {addr[0]}:{addr[1]}")
+    def send_connect(self, addr):
         self.socket = MuxDemuxStream()
         self.socket.connect(addr)
         self.socket.settimeout(self.CONNACK_WAIT_TIMEOUT)
         self.socket.setblocking(True)
+
         while True:
             try:
                 logger.debug("Sending connect packet")
@@ -49,8 +47,8 @@ class SAWSocketClient(SAWSocketInterface):
                 logger.debug("Time out waiting for CONNACK, sending again")
             except ProtocolViolation:
                 logger.error("Protocol violation, closing connection")
-                self.socket.close()
-                self.status.set(DISCONNECTED)
+                self.state.set_disconnected()
+                self.stop()
                 return
         logger.info("Received CONNACK, sending first INFO packet")
         while True:
@@ -64,7 +62,7 @@ class SAWSocketClient(SAWSocketInterface):
             try:
                 PacketFactory.read_ack(self.socket)
                 self.next_packet_number_to_send += 1
-                self.status.set(CONNECTED)
+                self.state = ClientConnected(self)
                 self.socket.settimeout(None)
                 break
             except socket.timeout:
@@ -72,9 +70,8 @@ class SAWSocketClient(SAWSocketInterface):
             except ProtocolViolation:
                 logger.error("Protocol violation, closing connection")
                 self.socket.close()
-                self.status.set(DISCONNECTED)
+                self.state = ClientDisconnected(self)
                 return
-
 
         logger.debug("Connected")
         self.packet_thread_handler = threading.Thread(
@@ -82,6 +79,10 @@ class SAWSocketClient(SAWSocketInterface):
         )
         self.packet_thread_handler.start()
         self.info_bytestream = MTByteStream()
+
+    def connect(self, addr):
+        logger.info(f"Connecting to {addr[0]}:{addr[1]}")
+        self.state.connect(addr)
 
     def handle_connect(self, packet):
         logger.error("Received connect packet from server")

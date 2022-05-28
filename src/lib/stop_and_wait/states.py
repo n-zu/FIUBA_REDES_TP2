@@ -30,35 +30,18 @@ class SAWState(ABC):
     def handle_finack(self, packet):
         pass
 
+    @abstractmethod
+    def can_send(self):
+        pass
 
-class ConnectedState(SAWState):
+    @abstractmethod
+    def can_recv(self):
+        pass
 
+    @abstractmethod
+    def set_disconnected(self):
+        pass
 
-
-class DisconnectedState(SAWState):
-    pass
-
-
-class ConnectingState(SAWState):
-    pass
-
-
-class NotConnectedState(SAWState):
-    def handle_connect(self, packet):
-        self.saw_socket.state = ConnectingState(self.saw_socket)
-        self.saw_socket.send_connack()
-
-    def handle_connack(self, packet):
-        self.saw_socket.state = DisconnectedState(self.saw_socket)
-
-    def handle_info(self, packet):
-        self.saw_socket.state = DisconnectedState(self.saw_socket)
-
-    def handle_ack(self, packet):
-        self.saw_socket.state = DisconnectedState(self.saw_socket)
-
-    def handle_fin(self, packet):
-        self.saw_socket.state = DisconnectedState(self.saw_socket)
-        
-    def handle_finack(self, packet):
-        self.saw_socket.state = DisconnectedState(self.saw_socket)
+    @abstractmethod
+    def close(self):
+        pass
