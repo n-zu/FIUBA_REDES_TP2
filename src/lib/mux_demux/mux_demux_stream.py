@@ -1,16 +1,13 @@
 import socket
 import threading
 import time
-import logging
 
+from .buggy_udp import BuggyUDPSocket
 from ..utils import MTByteStream
+from loguru import logger
 
 MAGIC_WORD = "ROSTOV"
 PACKET_SIZE = 2**15
-
-logger = logging.getLogger(__name__)
-
-WINDOW_SIZE = 2**10
 
 
 def extract_packet(packet):
@@ -25,7 +22,9 @@ def extract_packet(packet):
 
 
 class MuxDemuxStream:
-    def __init__(self):
+    def __init__(self, buggyness_factor=0.0):
+        self.buggyness_factor = buggyness_factor
+
         self.bytestream = None
         self.send_socket = None
         self.send_addr = None
@@ -33,14 +32,13 @@ class MuxDemuxStream:
         # Only for stream created with connect()
         self.recv_thread_handle = None
         self.queue_timeout = None
-        self.queue_block = False
+        self.queue_block = True
+        self.close_event = threading.Event()
 
     def connect(self, send_addr):
         self.send_addr = send_addr
         self.bytestream = MTByteStream()
-        self.recv_socket = socket.socket(
-            family=socket.AF_INET, type=socket.SOCK_DGRAM
-        )
+        self.recv_socket = BuggyUDPSocket(self.buggyness_factor)
         self.send_socket = self.recv_socket
         self.recv_thread_handle = threading.Thread(target=self.recv_thread)
         self.recv_thread_handle.start()
@@ -57,10 +55,14 @@ class MuxDemuxStream:
         while True:
             try:
                 data, addr = self.recv_socket.recvfrom(PACKET_SIZE)
-                logger.debug(
-                    "Received {} bytes from {}".format(len(data), addr)
-                )
                 data = extract_packet(data)
+
+                logger.debug(
+                    "Received {} bytes from {} ({})".format(
+                        len(data), addr, data
+                    )
+                )
+
                 if addr != self.send_addr:
                     raise Exception(
                         "Received packet from invalid address {} - Expected {}"
@@ -68,32 +70,43 @@ class MuxDemuxStream:
                     )
                 self.bytestream.put_bytes(data)
             except socket.timeout:
-                pass
-                # check flag for stopping thread
+                if self.close_event.is_set():
+                    logger.debug("Receiver thread exiting")
+                    return
 
     def send(self, buffer):
+        """
         logger.debug(
             "Sending {} bytes to {} ({})".format(
                 len(buffer), self.send_addr, buffer
             )
         )
-        bytes_sent = self.send_socket.sendto(
+        """
+
+        self.send_socket.sendto(
             str.encode(MAGIC_WORD) + buffer, self.send_addr
         )
-        return bytes_sent
+        # Siempre se envia la totalidad del paquete
+        return len(buffer)
 
     def send_all(self, data):
         bytes_sent = 0
         while bytes_sent < len(data):
-            tmp = self.send(data[bytes_sent:])
-            bytes_sent += tmp
-            # bytes_sent += self.send(data[bytes_sent:])
+            bytes_sent += self.send(data[bytes_sent:])
         return bytes_sent
 
     def recv(self, buff_size):
-        data = self.bytestream.get_bytes(
-            buff_size, self.queue_timeout, block=self.queue_block
-        )
+        data = b""
+        while len(data) < buff_size:
+            new_data = self.bytestream.get_bytes(
+                buff_size - len(data),
+                self.queue_timeout,
+                block=self.queue_block,
+            )
+            if new_data != b"":
+                data += new_data
+            else:
+                return data
         return data
 
     def recv_exact(self, buff_size):
@@ -116,7 +129,15 @@ class MuxDemuxStream:
 
     def close(self):
         logger.debug("Closing stream")
-        # TODO: send event to stop recv thread
+        self.close_event.set()
+        # Socket generado con connect()
         if self.recv_thread_handle:
             self.recv_thread_handle.join()
             self.recv_socket.close()
+        self.send_socket.close()
+
+    def gettimeout(self):
+        return self.queue_timeout
+
+    def getblocking(self):
+        return self.queue_block
