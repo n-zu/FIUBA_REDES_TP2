@@ -71,5 +71,37 @@ def test_should_receive_data_big_buggy():
     assert output == data
 
 
+def test_should_send_and_receive_data():
+    port = 57121 + 3
+    msg_1 = b"Client: Hello"
+    msg_2 = b"Server: Hello"
+
+    listener = RDTListener("selective_repeat")
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    def client(port):
+        client = SRSocket()
+        client.connect(("127.0.0.1", port))
+        client.send(msg_1)
+        cli_msg = client.recv(len(msg_2))
+        assert cli_msg == msg_2
+        client.close()
+
+    thread = Thread(target=client, args=(port))
+    thread.start()
+    socket = listener.accept()
+
+    srv_msg = socket.recv(len(msg_1))
+    assert srv_msg == msg_1
+
+    socket.send(msg_2)
+    # Como todavia no esta el FIN y FINACK hay que joinear
+    # el otro thread antes de cerrar este socket
+    thread.join()
+    socket.close()
+    listener.close()
+
+
 if __name__ == "__main__":
     test_should_receive_data_big_buggy()
