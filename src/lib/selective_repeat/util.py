@@ -58,7 +58,6 @@ class BlockAcker:
             i += 1
 
     def received(self, packet):
-
         if (self.last_received + 1) % ACK_NUMBERS == packet.number():
             self.last_received = packet.number()
             self.blocks[packet.number()] = packet
@@ -76,6 +75,7 @@ class AckRegister:
     def __init__(self):
         self.lock = threading.Lock()
         self.unacknowledged = set()
+        self.first_acked = None
         self.stopped = threading.Event()
 
     def add_pending(self, packet):
@@ -89,6 +89,7 @@ class AckRegister:
             self.unacknowledged.add(packet.number())
 
     def acknowledge(self, packet):
+        self.__set_first(packet.number())
         with self.lock:
             self.unacknowledged.discard(packet.number())
 
@@ -112,6 +113,18 @@ class AckRegister:
                     + ",".map(lambda x: str(x.number()), self.unacknowledged)
                 )
             self.unacknowledged.clear()
+
+    def __set_first(self, number):
+        if self.first_acked and number == INITIAL_PACKET_NUMBER:
+            self.first_acked.set()
+            logger.debug("First INFO packet acked")
+
+    def enable_wait_first(self):
+        self.first_acked = threading.Event()
+
+    def wait_first_acked(self, timeout=None):
+        if self.first_acked:
+            self.first_acked.wait(timeout=timeout)
 
 
 class SafeSendSocket:

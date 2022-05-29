@@ -63,11 +63,11 @@ class SRSocket:
         self.socket = MuxDemuxStream()
         self.socket.connect(addr)
         self.send_socket.set_socket(self.socket)
+        self.ack_register.enable_wait_first()
         # Esperar CONNACK
         self.__wait_connack(Connect())
         # Envío un INFO para confirmar recepción de CONNACK
         self.__send_info(Info(self.number_provider.get()))
-
         # Yo ya me puedo considerar conectado
         self.status.set_status(CONNECTED)
         logger.debug("Connected")
@@ -211,6 +211,7 @@ class SRSocket:
         )
 
     def close(self):
+        self.ack_register.wait_first_acked()
         if self.status.get() == CLOSING:
             self.packet_thread_handler.join()
         else:
@@ -275,6 +276,7 @@ class SRSocket:
         logger.debug(f"Sending buffer of length {len(buffer)}")
         packets = Info.from_buffer(buffer, self.max_size)
         logger.debug("Fragmented buffer into %d packets" % len(packets))
+        self.ack_register.wait_first_acked()
 
         for packet in packets:
             packet.set_number(self.number_provider.get())
