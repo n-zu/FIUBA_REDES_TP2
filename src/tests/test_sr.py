@@ -55,7 +55,7 @@ def test_should_receive_data_big():
 def test_should_receive_data_big_buggy():
     port = 57121 + 2
     data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
-    listener = RDTListener("selective_repeat", 0.20)
+    listener = RDTListener("selective_repeat", 0.25)
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
 
@@ -111,4 +111,4 @@ def test_should_send_and_receive_data():
 
 
 if __name__ == "__main__":
-    test_should_send_and_receive_data()
+    test_should_receive_data_big_buggy()

@@ -13,7 +13,7 @@ INITIAL_INFO_TIMEOUT = 5
 
 # Cantidad de veces a reintentar enviar el CONNECT y CONNACK
 # antes de fallar
-CONNECT_RETRIES = 3
+CONNECT_RETRIES = 10
 
 # Cada cuandos segundos reenviar un paquete que para el cual
 # no se recibió el ACK

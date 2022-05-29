@@ -1,4 +1,3 @@
-from datetime import datetime
 from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.selective_repeat.packet import (
     Packet,
@@ -53,9 +52,9 @@ class SRSocket:
         self.socket.connect(addr)
         self.send_socket.set_socket(self.socket)
         # Esperar CONNACK
-        self.__wait_retry(Connect(), False)
+        self.__wait_connack(Connect())
         # Envío un INFO para confirmar recepción de CONNACK
-        self.__send_packet(Info(self.number_provider.get()))
+        self.__send_info(Info(self.number_provider.get()))
 
         # Yo ya me puedo considerar conectado
         self.status = CONNECTED
@@ -71,16 +70,16 @@ class SRSocket:
         self.socket.settimeout(CONNECT_WAIT_TIMEOUT)
         try:
             # Espero un connect
-            connect = self.__wait_for_connect()
+            connect = self.__wait_connect()
         except TimeoutError or socket.timeout:
             logger.debug("Timed out waiting for CONNECT packet")
 
         # Mando connack y espero el primer info
-        self.__wait_retry(connect.ack(), True)
+        self.__wait_initial_info(connect.ack())
         self.status = CONNECTED
         self.packet_thread_handler.start()
 
-    def __wait_for_connect(self):
+    def __wait_connect(self):
         self.socket.settimeout(CONNECT_WAIT_TIMEOUT)
         packet = Packet.read_from_stream(self.socket)
         if packet.type != CONNECT:
@@ -89,17 +88,36 @@ class SRSocket:
             )
         return packet
 
-    def __wait_retry(self, sent_packet, initial_info=False):
+    def __wait_connack(self, connect):
         self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
-        self.send_socket.send_all(sent_packet.encode())
-        expected_type = INFO if initial_info else CONNACK
-        prev = datetime.now()
-        for _ in range(CONNECT_RETRIES):
+        self.send_socket.send_all(connect.encode())
+        for i in range(CONNECT_RETRIES):
             try:
                 packet = Packet.read_from_stream(self.socket)
-                if packet.type == expected_type:
-                    if not initial_info:
-                        return packet
+                if packet.type == CONNACK:
+                    return
+                raise Exception(
+                    "Received unexpected packet type"
+                    f" ({Packet.get_type_from_byte(packet.type)}) while"
+                    " waiting for CONNACK"
+                )
+            except (TimeoutError, socket.timeout):
+                self.send_socket.send_all(connect.encode())
+                logger.warning(
+                    f"Timed out waiting for connack, retrying (attempt {i})"
+                )
+                continue
+        raise TimeoutError("Could not confirm connection was established")
+
+    def __wait_initial_info(self, connack):
+        self.socket.settimeout(CONNACK_WAIT_TIMEOUT)
+        for i in range(CONNECT_RETRIES):
+            try:
+                packet = Packet.read_from_stream(self.socket)
+                if packet.type == CONNECT:
+                    # Asumo que no le llego mi connack
+                    continue
+                if packet.type == INFO:
                     self.acker.received(packet)
                     if packet.number() != INITIAL_PACKET_NUMBER:
                         continue
@@ -107,13 +125,15 @@ class SRSocket:
                 raise Exception(
                     "Received unexpected packet type"
                     f" ({Packet.get_type_from_byte(packet.type)}) while"
-                    f" establishing connection (intial_info: {initial_info})"
+                    " waiting for initial info on connection startup)"
                 )
             except (TimeoutError, socket.timeout):
-                self.send_socket.send_all(sent_packet.encode())
-                now = datetime.now()
-                logger.error(f"Now - prev: {now - prev}")
-                prev = now
+                self.send_socket.send_all(connack.encode())
+                logger.warning(
+                    "Timed out waiting for initial info, retrying (attempt"
+                    f" {i})"
+                )
+                continue
         raise TimeoutError("Could not confirm connection was established")
 
     def close(self):
@@ -158,9 +178,9 @@ class SRSocket:
             f"Packet with number {packet.number()} not acknowledged on time,"
             f" resending it (attempt {send_attempt})"
         )
-        self.__send_packet(packet, send_attempt + 1)
+        self.__send_info(packet, send_attempt + 1)
 
-    def __send_packet(self, packet, attempts=0):
+    def __send_info(self, packet, attempts=0):
         self.send_socket.send_all(packet.encode())
         timer = threading.Timer(
             ACK_TIMEOUT,
@@ -187,7 +207,7 @@ class SRSocket:
                     "Added pending acknowledgement for packet"
                     f" {packet.number()}"
                 )
-                self.__send_packet(packet)
+                self.__send_info(packet)
 
     def recv(self, buff_size, timeout=None):
         logger.debug("Trying to receive data (buff_size %d)" % buff_size)
