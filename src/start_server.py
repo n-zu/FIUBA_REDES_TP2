@@ -1,7 +1,8 @@
-from numpy import byte
 from loguru import logger
 import threading
 import os
+from args_server import args_server
+import socket
 
 MIN_SIZE = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -79,11 +80,23 @@ def check_type(socket):
 		socket.send((UNKNOWN_TYPE_ERROR).to_bytes(1, byteorder=ENDIANESS))
 
 
-def start_server(server):
-	server.start()
+def start_server():
+	args = args_server()
+
+	logger.debug("arguments read")
+
+	HOST = args.host
+	PORT = args.port
+	STORAGE = args.storage
+	
+	serverSocket = socket(socket.AF_INET, socket.SOCK_STREAM)
+	serverSocket.bind(('', PORT))
+
+	serverSocket.listen(1)
+	logger.info('the server is ready to receive')
 
 	while True:
-		socket = server.wait_for_connection()
+		connectionSocket, addr = serverSocket.accept()
 
-		if socket:
-			threading.Thread(target=check_type, args=(socket)).start()
+		if connectionSocket:
+			threading.Thread(target=check_type, args=(connectionSocket)).start()
