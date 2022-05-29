@@ -1,5 +1,7 @@
 import queue
 import threading
+import time
+
 from .mux_demux_stream import (
     socket,
     MuxDemuxStream,
@@ -69,9 +71,9 @@ class MTQueueWrapper:
 
 
 class MTSocketSender:
-    def __init__(self, addr, queue):
+    def __init__(self, addr, my_queue):
         self.addr = addr
-        self.queue = queue
+        self.queue = my_queue
 
     def sendto(self, data, addr):
         self.queue.put((data, addr))
@@ -84,7 +86,8 @@ class MTSocketSender:
 class MuxDemuxListener:
     def __init__(self, buggyness_factor=0):
         self.buggyness_factor = buggyness_factor
-
+        self.queue_timeout = None
+        self.queue_block = True
         self.bind_addr = None
         self.queue_size = 0
         self.accept_addr = None
@@ -112,10 +115,10 @@ class MuxDemuxListener:
         self.send_thread_handle.start()
 
     def accept(self):
-        logger.info("Accepting connection")
+        logger.info(f"Accepting connection (timeout={self.queue_timeout}, block={self.queue_block})")
         while True:
             try:
-                addr = self.waiting_connections.get()
+                addr = self.waiting_connections.get(timeout=self.queue_timeout, block=self.queue_block)
                 logger.debug("Accepted connection from {}".format(addr))
                 socket_sender = MTSocketSender(addr, self.queue_to_send)
 
@@ -125,9 +128,7 @@ class MuxDemuxListener:
                 )
                 return new_stream
             except queue.Empty:
-                if self.stop_event.is_set():
-                    logger.debug("Stopping accept thread")
-                    break
+                return None
 
     def send_thread(self):
         while True:
@@ -135,7 +136,7 @@ class MuxDemuxListener:
                 (data, addr) = self.queue_to_send.get(timeout=1)
                 # Me indica que el socket se desconecto
                 if data is None:
-                    logger.debug(f"Removing addr {addr} from bytestreams")
+                    logger.debug(f"Removing addr {addr} from bytestreams (now {len(self.bytestreams)} remaining)")
                     del self.bytestreams[addr]
                 else:
                     bytes_sent = 0
@@ -182,7 +183,16 @@ class MuxDemuxListener:
                 self.bytestreams[addr].put_bytes(data)
 
     def close(self):
+        while len(self.bytestreams) > 0:
+            logger.warning("bytestreams is not empty")
+            time.sleep(0.1)
         self.stop_event.set()
         self.recv_thread_handle.join()
         self.send_thread_handle.join()
         self.accept_socket.close()
+
+    def settimeout(self, timeout):
+        self.queue_timeout = timeout
+
+    def setblocking(self, blocking):
+        self.queue_block = blocking
