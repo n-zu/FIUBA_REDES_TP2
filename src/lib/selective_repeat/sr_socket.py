@@ -1,4 +1,3 @@
-from numpy import info
 from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.selective_repeat.packet import (
     Packet,
@@ -96,14 +95,8 @@ class SRSocket:
         self.socket.settimeout(CONNECT_WAIT_TIMEOUT)
         packet = Packet.read_from_stream(self.socket)
         if packet.type != CONNECT:
-            logger.error(
-                f"Received unexpected packet {packet} when initializing"
-                " connection"
-            )
-            raise Exception(
-                "Received unexpected packet {packet} when initializing"
-                " connection"
-            )
+            logger.error(f"Received  {packet}, Expecting CONNECT")
+            raise Exception(f"Received  {packet}, Expecting CONNECT")
         return packet
 
     def __wait_connack(self, connect):
@@ -114,10 +107,8 @@ class SRSocket:
                 packet = Packet.read_from_stream(self.socket)
                 if packet.type == CONNACK:
                     return
-                raise Exception(
-                    "Received unexpected packet type"
-                    f" ({packet}) while waiting for CONNACK"
-                )
+                logger.error(f"Received  {packet}, Expecting CONNACK")
+                raise Exception(f"Received  {packet}, Expecting CONNACK")
             except (TimeoutError, socket.timeout):
                 self.send_socket.send_all(connect.encode())
                 logger.warning(
@@ -185,7 +176,7 @@ class SRSocket:
             elif packet.type == FINACK:
                 logger.warning("Received FINACK packet but a FIN wasn't sent")
             else:
-                logger.error("Received unknown packet type")
+                logger.warning("Received unknown packet type")
 
         logger.debug("Packet handler stopping")
 
@@ -223,7 +214,7 @@ class SRSocket:
                     " it arrived successfully"
                 )
                 return
-        logger.error(
+        logger.warning(
             "Could not confirm connection was closed for the other end"
         )
 
@@ -263,7 +254,7 @@ class SRSocket:
                 )
                 continue
 
-        logger.error(
+        logger.warning(
             "Could not confirm connection was closed for the other end"
         )
 
