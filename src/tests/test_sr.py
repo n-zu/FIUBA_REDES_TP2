@@ -98,9 +98,9 @@ def test_should_send_data():
 
     # Como todavia no esta el FIN y FINACK hay que joinear
     # el otro thread antes de cerrar este socket
-    thread.join()
     socket.close()
     listener.close()
+    thread.join()
 
 
 def test_should_send_and_receive_data():

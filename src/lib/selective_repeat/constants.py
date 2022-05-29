@@ -8,6 +8,12 @@ CONNECT_WAIT_TIMEOUT = 10
 # antes de reintentar enviar el CONNECT
 CONNACK_WAIT_TIMEOUT = 1.5
 
+# Segundos a esperar otro FIN antes de cerrar conexión
+FINACK_WAIT_TIMEOUT = 5
+
+# Cantidad de reintentos a reenviar FIN o FINACK
+FIN_RETRIES = 10
+
 # Segundos a esperar el primer INFO que confirma el CONNACK
 INITIAL_INFO_TIMEOUT = 5
 
@@ -39,3 +45,5 @@ ACK_NUMBERS = 4294967296
 NOT_CONNECTED = "NOT_CONNECTED"
 # Soy Socket de listener, y recibi el CONNECT
 CONNECTED = "CONNECTED"
+# Mandé o me mandaron un FIN
+CLOSING = "CLOSING"

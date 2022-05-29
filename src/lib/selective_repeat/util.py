@@ -1,4 +1,9 @@
-from .constants import INITIAL_PACKET_NUMBER, WINDOW_SIZE, ACK_NUMBERS
+from .constants import (
+    INITIAL_PACKET_NUMBER,
+    NOT_CONNECTED,
+    WINDOW_SIZE,
+    ACK_NUMBERS,
+)
 import queue
 from loguru import logger
 import threading
@@ -7,7 +12,7 @@ import threading
 # Cuenta los paquetes on-flight y bloquea el get() hasta que haya
 # espacio en la window
 class AckNumberProvider:
-    def __init__(self, timeout=None):
+    def __init__(self, timeout=None, window_size=WINDOW_SIZE):
         self.next = INITIAL_PACKET_NUMBER + WINDOW_SIZE
         self.channel = queue.SimpleQueue()
         for i in range(
@@ -61,8 +66,9 @@ class BlockAcker:
         elif gt_packets(packet.number(), self.last_received):
             self.blocks[packet.number()] = packet
 
-        logger.info(f"Sending ACK for packet {packet.description()}")
-        self.sender(packet.ack().encode())
+        ack = packet.ack()
+        logger.info(f"Sending {ack}")
+        self.sender(ack.encode())
 
 
 # Registra que paquetes tienen ack pendiente
@@ -74,6 +80,10 @@ class AckRegister:
 
     def add_pending(self, packet):
         if self.stopped.is_set():
+            logger.warning(
+                f"Tried to set packet {packet.number()} as pending, but"
+                " the AckRegister is stopped"
+            )
             return
         with self.lock:
             self.unacknowledged.add(packet.number())
@@ -95,6 +105,12 @@ class AckRegister:
     def stop(self):
         self.stopped.set()
         with self.lock:
+            if len(self.unacknowledged) > 0:
+                logger.warning(
+                    "Clearing unacknowledged packets on AckRegister, but ACKs"
+                    " not received for numbers "
+                    + ",".map(lambda x: str(x.number()), self.unacknowledged)
+                )
             self.unacknowledged.clear()
 
 
@@ -111,3 +127,16 @@ class SafeSendSocket:
             raise Exception("No socket has been set")
         with self.send_lock:
             self.socket.send_all(data)
+
+
+class SocketStatus:
+    def __init__(self, status=NOT_CONNECTED):
+        self.status = status
+        self.lock = threading.Lock()
+
+    def set_status(self, status):
+        self.status = status
+
+    def get(self):
+        with self.lock:
+            return self.status
