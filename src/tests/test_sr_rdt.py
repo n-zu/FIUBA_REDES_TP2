@@ -1,4 +1,3 @@
-import pytest
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.rdt_listener.rdt_listener import RDTListener
 from threading import Thread
@@ -44,7 +43,6 @@ def test_should_receive_data_from_multiple_clients():
     assert output_2 == data_2
 
 
-@pytest.mark.slow
 def test_should_send_and_receive_data_from_multiple_clients():
     port = 57121 + 1
     data_1 = b"Client 1"

@@ -1,4 +1,3 @@
-import pytest
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.rdt_listener.rdt_listener import RDTListener
 from threading import Thread
@@ -51,7 +50,6 @@ def test_should_receive_data_big():
     assert output == data
 
 
-@pytest.mark.slow
 def test_should_receive_data_big_buggy():
     port = 57121 + 2
     data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
@@ -73,8 +71,6 @@ def test_should_receive_data_big_buggy():
     assert output == data
 
 
-# FAILING - FIN missing
-@pytest.mark.slow
 def test_should_send_data():
     port = 57121 + 3
     msg = b"Server: Hello"
