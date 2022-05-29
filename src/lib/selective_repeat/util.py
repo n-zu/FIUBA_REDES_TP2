@@ -110,7 +110,7 @@ class AckRegister:
                 logger.warning(
                     "Clearing unacknowledged packets on AckRegister, but ACKs"
                     " not received for numbers "
-                    + ",".map(lambda x: str(x.number()), self.unacknowledged)
+                    + str(self.unacknowledged)
                 )
             self.unacknowledged.clear()
 

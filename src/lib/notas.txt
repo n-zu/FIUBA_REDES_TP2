@@ -2,27 +2,40 @@ Header FTP
 tipo: upload (0) download(1) error (2) (dos bits, podemos usar un byte entero por simplicidad)
 longitud: tamaño en bytes del archivo (segun wikipedia, un protocolo TLV tiene que tener longitud fija, pero podemos hacer como en MQTT y tener longitud variable)
 
-Upload Header
-+------------------------+
-|Tipo: 0 (1 byte)		 |
-|Longitud (8 bytes) 	 |
-|NombreArchivo (8 bytes) |
-+------------------------+
+Cliente
+	Upload Header
+	+------------------------+
+	|Tipo: 0 (1 byte)		 |
+	|Longitud (8 bytes)		 |
+	|LongitudNombre (2 bytes)|
+	+------------------------+
 
 
 
-Download Header
-+------------------------+
-|Tipo: 1 (1 byte)		 |
-|Longitud (8 bytes)		 |
-|NombreArchivo (8 bytes) |
-+------------------------+
+	Download Request Header
+	+------------------------+
+	|Tipo: 1 (1 byte)		 |
+	|LongitudNombre (2 bytes)|
+	+------------------------+
 
-Error Header
-+------------------------+
-|Tipo: 2 (1 byte)		 |
-|CodigoError (1 byte)	 |
-+------------------------+
+Servidor
+
+	Download Header
+	+------------------------+
+	|Tipo: 2 (1 byte)		 |
+	|Longitud (8 bytes)		 |
+	+------------------------+
+
+	Confirm Header
+	+------------------------+
+	|Tipo: 3 (1 byte)		 |
+	+------------------------+
+
+	Error Header
+	+------------------------+
+	|Tipo: 4 (1 byte)		 |
+	|CodigoError (1 byte)	 |
+	+------------------------+
 
 
 Servidor - Recibo una nueva conexion:

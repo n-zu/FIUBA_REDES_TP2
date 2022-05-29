@@ -75,14 +75,6 @@ class MuxDemuxStream:
                     return
 
     def send(self, buffer):
-        """
-        logger.debug(
-            "Sending {} bytes to {} ({})".format(
-                len(buffer), self.send_addr, buffer
-            )
-        )
-        """
-
         self.send_socket.sendto(
             str.encode(MAGIC_WORD) + buffer, self.send_addr
         )
