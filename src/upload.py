@@ -40,6 +40,8 @@ def upload(endianess, bytes_read):
 
     FILENAME_BYTES = FILENAME.encode()
 
+    FILENAME_LEN = len(FILENAME_BYTES).to_bytes(2, byteorder=endianess)
+
     ADDR = (HOST, PORT)
 
     logger.info("creating socket")
@@ -53,6 +55,7 @@ def upload(endianess, bytes_read):
     #send header
     client.send(TYPE)
     client.send(SIZE)
+    client.send(FILENAME_LEN)
     client.send(FILENAME_BYTES)
 
     logger.debug("sending body")

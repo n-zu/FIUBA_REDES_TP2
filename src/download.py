@@ -22,10 +22,10 @@ def download(endianess, bytes_read):
 
     TYPE = (1).to_bytes(1, byteorder=endianess)
 
-    SIZE = (42).to_bytes(8, byteorder=endianess)
-
     FILENAME_BYTES = FILENAME.encode()
 
+    FILENAME_LEN = len(FILENAME_BYTES).to_bytes(2, byteorder=endianess)
+    
     ADDR = (HOST, PORT)
 
     logger.info("creating socket")
@@ -38,7 +38,7 @@ def download(endianess, bytes_read):
     logger.debug("sending header")
     #send header
     client.send(TYPE)
-    client.send(SIZE)
+    client.send(FILENAME_LEN)
     client.send(FILENAME_BYTES)
 
     type = client.recv(1)
@@ -47,7 +47,9 @@ def download(endianess, bytes_read):
         return
 
     logger.debug("reading file length")
-    file_size = client.recv(8)
+    file_size_bytes = client.recv(8)
+
+    file_size = int.from_bytes(file_size_bytes, byteorder=endianess)
 
     logger.debug("downloading body")
     with open(FILEPATH + FILENAME, 'wb') as f:
