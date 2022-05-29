@@ -7,6 +7,10 @@ import sys
 
 ENDIANESS = 'little'
 BYTES_READ = 1024
+UPLOAD_SUCCESSFUL_HEADER = 3
+ERROR_HEADER = 4
+UNKNOWN_TYPE_ERROR = 0
+FILE_NOT_FOUND_ERROR = 1
 
 def upload(endianess, bytes_read):
     args = args_client(True)
@@ -39,26 +43,35 @@ def upload(endianess, bytes_read):
     ADDR = (HOST, PORT)
 
     logger.info("creating socket")
-    #client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     logger.info("conecting to server")
-    #client.connect(ADDR)
+    client.connect(ADDR)
 
     logger.info("sending message")
     logger.debug("sending header")
     #send header
-    #client.send(TYPE)
-    #client.send(SIZE)
-    #client.send(FILENAME_BYTES)
+    client.send(TYPE)
+    client.send(SIZE)
+    client.send(FILENAME_BYTES)
 
     logger.debug("sending body")
     #send body
     with open(FILEPATH + FILENAME, 'rb') as f:
         while bytes := f.read(bytes_read):
-            #client.send(bytes)
+            client.send(bytes)
             print(bytes)
 
+    logger.info("reading response")
+    response = client.read(1)
+
+    if response == UPLOAD_SUCCESSFUL_HEADER:
+        logger.info("successfull upload")
+    elif response == ERROR_HEADER:
+        logger.info("responded error")
+
+
     logger.info("closing socket")
-    #client.close()
+    client.close()
 
 upload(ENDIANESS, BYTES_READ)

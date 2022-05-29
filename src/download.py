@@ -29,25 +29,25 @@ def download(endianess, bytes_read):
     ADDR = (HOST, PORT)
 
     logger.info("creating socket")
-    #client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     logger.info("conecting to server")
-    #client.connect(ADDR)
+    client.connect(ADDR)
 
     logger.info("sending message")
     logger.debug("sending header")
     #send header
-    #client.send(TYPE)
-    #client.send(SIZE)
-    #client.send(FILENAME_BYTES)
+    client.send(TYPE)
+    client.send(SIZE)
+    client.send(FILENAME_BYTES)
 
-    #type = client.recv(1)
+    type = client.recv(1)
     if type != 3:
         logger.error("wrong packet type")
         return
 
     logger.debug("reading file length")
-    #file_size = client.recv(8)
+    file_size = client.recv(8)
 
     logger.debug("downloading body")
     with open(FILEPATH + FILENAME, 'wb') as f:
