@@ -1,3 +1,5 @@
+import time
+
 from lib.mux_demux.mux_demux_listener import MuxDemuxListener
 from lib.stop_and_wait.saw_socket import SAWSocket
 from lib.selective_repeat.sr_socket import SRSocket
@@ -14,6 +16,7 @@ class RDTListener:
         self.queue_size = 0
         self.recv_addr = None
         self.mux_demux_listener = MuxDemuxListener(buggyness_factor)
+        self.buggyness_factor = buggyness_factor
 
     def bind(self, recv_addr):
         logger.debug(f"bind({recv_addr})")
@@ -26,8 +29,11 @@ class RDTListener:
 
     def accept(self):
         new_mux_demux_stream = self.mux_demux_listener.accept()
+        if new_mux_demux_stream is None:
+            return None
+
         if self.rdt_method == STOP_AND_WAIT:
-            new_rdt_stream = SAWSocket()
+            new_rdt_stream = SAWSocket(self.buggyness_factor)
         elif self.rdt_method == SELECTIVE_REPEAT:
             new_rdt_stream = SRSocket()
         else:
@@ -37,4 +43,11 @@ class RDTListener:
         return new_rdt_stream
 
     def close(self):
+        logger.critical("Stopping RDT listener")
         self.mux_demux_listener.close()
+
+    def settimeout(self, timeout):
+        self.mux_demux_listener.settimeout(timeout)
+
+    def setblocking(self, block):
+        self.mux_demux_listener.setblocking(block)
