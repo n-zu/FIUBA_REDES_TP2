@@ -14,13 +14,13 @@ ENDIANESS = 'little'
 
 
 
-def upload_to_server(socket, filename, length):
+def upload_to_server(socket, path, filename, length):
 	logger.info(f'server receiving {filename}')
 
 	counter = 0
-	with open(filename, "wb") as file:
+	with open(os.path.join(path, filename), "wb") as file:
 		while counter < length:
-			data = socket.receive(MIN_SIZE)
+			data = str.from_bytes(socket.recv(MIN_SIZE), byteorder=ENDIANESS)
 			file.write(data)
 			counter += len(data)
 
@@ -31,7 +31,7 @@ def upload_to_server(socket, filename, length):
 
 
 
-def download_from_server(socket, filename):
+def download_from_server(socket, path, filename):
 	length = 0
 	try:
 		length = os.path.getsize(filename)
@@ -50,7 +50,7 @@ def download_from_server(socket, filename):
 	socket.send((length).to_bytes(8, byteorder=ENDIANESS))
 
 	counter = 0
-	with open(filename, 'r') as file:
+	with open(os.path.join(path, filename), 'r') as file:
 		while counter < length:
 			data = file.read(MIN_SIZE)
 			socket.send(data)
@@ -61,19 +61,19 @@ def download_from_server(socket, filename):
 	socket.close() 
 
 
-def check_type(socket):
-	type = socket.receive(1)
+def check_type(socket, path):
+	type = socket.recv(1)
 
 	if type == 0:
-		length = socket.receive(8)
-		filename_length = socket.receive(2)
-		filename = socket.receive(filename_length)
-		upload_to_server(socket, filename, length)
+		length = int.from_bytes(socket.recv(8), byteorder=ENDIANESS)
+		filename_length = int.from_bytes(socket.recv(2), byteorder=ENDIANESS)
+		filename = int.from_bytes(socket.recv(filename_length), byteorder=ENDIANESS)
+		upload_to_server(socket, path, filename, length)
 
 	elif type == 1:
-		filename_length = socket.receive(2)
-		filename = socket.receive(filename_length)
-		download_from_server(socket, filename)
+		filename_length = int.from_bytes(socket.recv(2), byteorder=ENDIANESS)
+		filename = int.from_bytes(socket.recv(filename_length), byteorder=ENDIANESS)
+		download_from_server(socket, path, filename)
 
 	else:
 		socket.send((ERROR_HEADER).to_bytes(1, byteorder=ENDIANESS))
@@ -89,7 +89,7 @@ def start_server():
 	PORT = args.port
 	STORAGE = args.storage
 	
-	serverSocket = socket(socket.AF_INET, socket.SOCK_STREAM)
+	serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	serverSocket.bind(('', PORT))
 
 	serverSocket.listen(1)
@@ -99,4 +99,6 @@ def start_server():
 		connectionSocket, addr = serverSocket.accept()
 
 		if connectionSocket:
-			threading.Thread(target=check_type, args=(connectionSocket)).start()
+			threading.Thread(target=check_type, args=(connectionSocket, STORAGE)).start()
+
+start_server()
