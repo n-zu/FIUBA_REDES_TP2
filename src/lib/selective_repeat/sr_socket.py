@@ -193,6 +193,7 @@ class SRSocket:
                         f" it (attempt {i})"
                     )
                     self.send_socket.send_all(finack.encode())
+                    continue
                 if packet.type == FINACK:
                     # Acá hay 3 opciones:
                     # 1) El otro tipo mandó un finack de la nada nada que ver,
