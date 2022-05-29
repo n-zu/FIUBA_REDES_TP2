@@ -6,7 +6,8 @@ import random
 from loguru import logger
 
 LISTEN_ADDR = ("127.0.0.1", 1234)
-BUGGY = 0.5
+BUGGY = 0.3
+CLIENTS = 5
 
 client_hello = "Hello from client"
 client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(
@@ -44,10 +45,14 @@ def __handle_client(socket, stop):
     logger.success("Client handled")
 
 
-def start_server():
-    listener = RDTListener("selective_repeat", buggyness_factor=BUGGY)
+def start_server(
+    protocol,
+):
+    listener = RDTListener(protocol, buggyness_factor=BUGGY)
+    listener.setblocking(False)
     listener.bind(LISTEN_ADDR)
     listener.listen(50)
+    logger.success(f"Started {protocol} Server on {LISTEN_ADDR}")
     thread_handlers = []
 
     stop = threading.Event()
@@ -59,6 +64,8 @@ def start_server():
             )
             thread.start()
             thread_handlers.append(thread)
+        else:
+            time.sleep(0.1)
 
     logger.success("Joining server threads")
     for thread in thread_handlers:
@@ -69,30 +76,22 @@ def start_server():
     logger.success("Server finished")
 
 
-def start_client():
+def start_client(i):
+    logger.success(f"Starting client {i}")
     socket = SRSocket(buggyness_factor=BUGGY)
     socket.connect(LISTEN_ADDR)
-    if random.randint(0, 1) == 0:
+    if i % 2 == 0:
         socket.send(client_hello_bytes)
-        length = int.from_bytes(socket.recv(4), byteorder="big")
-        data = socket.recv(length)
-        data = data.decode("utf-8")
-        if data != welcoming_message:
-            raise Exception("Data received does not match expected data")
-        else:
-            logger.success("Received welcoming message")
-    else:
-        length = int.from_bytes(socket.recv(4), byteorder="big")
-        data = socket.recv(length)
-        data = data.decode("utf-8")
-        if data != welcoming_message:
-            raise Exception(
-                "Data received does not match expected data (expected"
-                f" {welcoming_message}, got {data})"
-            )
-        else:
-            logger.success("Received welcoming message")
 
+    length = int.from_bytes(socket.recv(4), byteorder="big")
+    data = socket.recv(length)
+    data = data.decode("utf-8")
+    if data != welcoming_message:
+        raise Exception("Data received does not match expected data")
+    else:
+        logger.success("Received welcoming message")
+
+    if i % 2 == 1:
         socket.send(client_hello_bytes)
 
     time.sleep(random.random() * 5)
@@ -112,12 +111,14 @@ def stopper_client():
 
 
 def main():
-    server_thread = threading.Thread(target=start_server)
+    server_thread = threading.Thread(
+        target=start_server, args=["selective_repeat"]
+    )
     server_thread.start()
 
     threads = []
-    for i in range(1):
-        client_thread = threading.Thread(target=start_client)
+    for i in range(CLIENTS - 1):
+        client_thread = threading.Thread(target=start_client, args=[i])
         client_thread.start()
         threads.append(client_thread)
 
@@ -128,9 +129,6 @@ def main():
     server_thread.join()
 
     logger.success("All finished")
-    time.sleep(2)
-    for thread in threading.enumerate():
-        print(thread.__dict__)
 
 
 if __name__ == "__main__":

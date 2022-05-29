@@ -1,5 +1,3 @@
-import time
-
 from lib.mux_demux.mux_demux_listener import MuxDemuxListener
 from lib.stop_and_wait.saw_socket import SAWSocket
 from lib.selective_repeat.sr_socket import SRSocket
@@ -43,7 +41,7 @@ class RDTListener:
         return new_rdt_stream
 
     def close(self):
-        logger.critical("Stopping RDT listener")
+        logger.debug("Stopping RDT listener")
         self.mux_demux_listener.close()
 
     def settimeout(self, timeout):
