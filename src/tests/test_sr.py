@@ -1,4 +1,5 @@
 import pytest
+from loguru import logger
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.rdt_listener.rdt_listener import RDTListener
 from threading import Thread
@@ -151,5 +152,37 @@ def test_should_receive_data_very_buggy():
     assert output == data
 
 
+def test_buggy_client_send():
+    port = 57121
+    msg = b"IM BUGGY"
+
+    listener = RDTListener("selective_repeat", buggyness_factor=0.5)
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    def client(port):
+        client = SRSocket(buggyness_factor=0.5)
+        client.connect(("127.0.0.1", port))
+        client.send(msg)
+        client.close()
+
+    for i in range(10):
+
+        thread = Thread(target=client, args=[port])
+        thread.start()
+        socket = listener.accept()
+
+        output = socket.recv(len(msg))
+
+        thread.join()
+        socket.close()
+
+        listener.close()
+
+        logger.success(f"Client {i} Succesfully handled")
+
+    assert output == msg
+
+
 if __name__ == "__main__":
-    test_should_receive_data_very_buggy()
+    test_buggy_client_send()
