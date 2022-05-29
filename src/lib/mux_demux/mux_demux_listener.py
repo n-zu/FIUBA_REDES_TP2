@@ -164,7 +164,7 @@ class MuxDemuxListener:
                     continue
 
             data = extract_packet(data)
-            logger.debug("Received packet: {}".format(data))
+            logger.trace("Received packet: {}".format(data))
 
             if addr not in self.bytestreams:
                 if not self.waiting_connections.full():

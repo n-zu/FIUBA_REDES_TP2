@@ -16,6 +16,27 @@ Para ejecutar los tests, ejecutar el comando `pytest`
 > python3 -m tests.test_saw
 > ```
 
+###### Nota (Z)
+
+> Me anda medio mal python, esto me dio resultado:
+
+Run test file: In `src`
+```
+python3 -m tests.test_sr
+```
+
+Run test: In `src/tests`
+```
+python3 -m pytest test_sr.py
+
+```
+
+Run test: In `src/tests` ( Also SLOW TESTS )
+```
+python3 -m pytest test_sr.py --runslow
+
+```
+
 ## Draft
 
 | Module | Client Functionalities              | Server Functionalities                               | Notes                    |
