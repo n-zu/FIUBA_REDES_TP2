@@ -88,6 +88,10 @@ class AckRegister:
         with self.lock:
             self.unacknowledged.add(packet.number())
 
+        logger.debug(
+            f"Added pending acknowledgement for packet {packet.number()}"
+        )
+
     def acknowledge(self, packet):
         self.__set_first(packet.number())
         with self.lock:

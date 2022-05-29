@@ -263,6 +263,7 @@ class SRSocket:
 
     def __send_info(self, packet, attempts=0):
         self.send_socket.send_all(packet.encode())
+        self.ack_register.add_pending(packet)
         timer = threading.Timer(
             ACK_TIMEOUT,
             self.__check_ack,
@@ -279,14 +280,10 @@ class SRSocket:
         logger.debug(f"Sending buffer of length {len(buffer)}")
         packets = Info.from_buffer(buffer, self.max_size)
         logger.debug("Fragmented buffer into %d packets" % len(packets))
-        self.ack_register.wait_first_acked()
 
+        self.ack_register.wait_first_acked()
         for packet in packets:
             packet.set_number(self.number_provider.get())
-            self.ack_register.add_pending(packet)
-            logger.debug(
-                f"Added pending acknowledgement for packet {packet.number()}"
-            )
             self.__send_info(packet)
 
     def recv(self, buff_size, timeout=None):
