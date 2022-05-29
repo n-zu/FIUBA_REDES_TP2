@@ -85,5 +85,5 @@ def start_server(server):
 	while True:
 		socket = server.wait_for_connection()
 
-	if socket:
-		threading.Thread(target=check_type, args=(socket)).start()
+		if socket:
+			threading.Thread(target=check_type, args=(socket)).start()
