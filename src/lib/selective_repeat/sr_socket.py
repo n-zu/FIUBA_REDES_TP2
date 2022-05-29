@@ -1,3 +1,4 @@
+from numpy import info
 from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.selective_repeat.packet import (
     Packet,
@@ -29,6 +30,7 @@ from .constants import (
     CONNECT_RETRIES,
     ACK_TIMEOUT,
     FIN_RETRIES,
+    FIN_WAIT_TIMEOUT,
     FINACK_WAIT_TIMEOUT,
     CLOSING,
     MAX_SIZE,
@@ -175,19 +177,20 @@ class SRSocket:
             elif packet.type == INFO:
                 self.acker.received(packet)
             elif packet.type == ACK:
-                self.number_provider.push()
+                self.number_provider.push(packet.number())
                 self.ack_register.acknowledge(packet)
             elif packet.type == FIN:
                 self.status.set_status(CLOSING)
-                self.ack_register.stop()
                 self.__wait_finack_arrived(packet.ack())
             elif packet.type == FINACK:
                 logger.warning("Received FINACK packet but a FIN wasn't sent")
             else:
                 logger.error("Received unknown packet type")
 
+        logger.debug("Packet handler stopping")
+
     def __wait_finack_arrived(self, finack):
-        self.socket.settimeout(FINACK_WAIT_TIMEOUT)
+        self.socket.settimeout(FIN_WAIT_TIMEOUT)
         self.send_socket.send_all(finack.encode())
         for i in range(FIN_RETRIES):
             try:
@@ -214,6 +217,11 @@ class SRSocket:
                     f" ({packet}) while checking FINACK arrived"
                 )
             except (TimeoutError, socket.timeout):
+                logger.debug(
+                    f"{FINACK_WAIT_TIMEOUT} seconds passed since FINACK was"
+                    " sent and didn't receive another FIN or FINACK, assuming"
+                    " it arrived successfully"
+                )
                 return
         logger.error(
             "Could not confirm connection was closed for the other end"
@@ -238,6 +246,8 @@ class SRSocket:
                 packet = Packet.read_from_stream(self.socket)
                 if packet.type == FINACK:
                     logger.info("Received FINACK")
+                    # Sending finack to hopefully stop the receiver's
+                    # timer sooner than it would normally do
                     self.send_socket.send_all(Finack().encode())
                     return
                 if packet.type == FIN:
@@ -303,6 +313,7 @@ class SRSocket:
                 buff_size, timeout
             )
         except TimeoutError or socket.timeout as e:
+
             if self.status.get() == CLOSING:
                 raise Exception(
                     "Connection was closed by the other end, reached end of"
