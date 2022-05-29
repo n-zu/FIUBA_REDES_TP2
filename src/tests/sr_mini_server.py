@@ -6,7 +6,7 @@ import random
 from loguru import logger
 
 LISTEN_ADDR = ("127.0.0.1", 1234)
-BUGGY = 0.2
+BUGGY = 0.5
 
 client_hello = "Hello from client"
 client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(
@@ -29,7 +29,7 @@ def __handle_client(socket, stop):
     data = socket.recv(length)
     data = data.decode("utf-8")
     if data == client_stop:
-        logger.critical("Received stop message")
+        logger.success("Received stop message")
         stop.set()
     elif data != client_hello:
         raise Exception(
@@ -41,7 +41,7 @@ def __handle_client(socket, stop):
 
     time.sleep(random.random() * 5)
     socket.close()
-    logger.critical("Client handled")
+    logger.success("Client handled")
 
 
 def start_server():
@@ -60,13 +60,13 @@ def start_server():
             thread.start()
             thread_handlers.append(thread)
 
-    logger.critical("Joining server threads")
+    logger.success("Joining server threads")
     for thread in thread_handlers:
         thread.join()
-    logger.critical("Joined server threads")
+    logger.success("Joined server threads")
 
     listener.close()
-    logger.critical("Server finished")
+    logger.success("Server finished")
 
 
 def start_client():
@@ -97,7 +97,7 @@ def start_client():
 
     time.sleep(random.random() * 5)
     socket.close()
-    logger.critical("Client finished")
+    logger.success("Client finished")
 
 
 def stopper_client():
@@ -108,7 +108,7 @@ def stopper_client():
 
     time.sleep(random.random() * 5)
     socket.close()
-    logger.critical("Stopper client finished")
+    logger.success("Stopper client finished")
 
 
 def main():
@@ -127,7 +127,8 @@ def main():
     stopper_client()
     server_thread.join()
 
-    time.sleep(10)
+    logger.success("All finished")
+    time.sleep(2)
     for thread in threading.enumerate():
         print(thread.__dict__)
 

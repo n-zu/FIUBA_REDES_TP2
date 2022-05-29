@@ -96,8 +96,13 @@ class SRSocket:
         self.socket.settimeout(CONNECT_WAIT_TIMEOUT)
         packet = Packet.read_from_stream(self.socket)
         if packet.type != CONNECT:
+            logger.error(
+                f"Received unexpected packet {packet} when initializing"
+                " connection"
+            )
             raise Exception(
-                "Received unexpected packet type when initializing connection"
+                "Received unexpected packet {packet} when initializing"
+                " connection"
             )
         return packet
 
