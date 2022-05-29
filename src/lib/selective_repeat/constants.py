@@ -8,8 +8,15 @@ CONNECT_WAIT_TIMEOUT = 10
 # antes de reintentar enviar el CONNECT
 CONNACK_WAIT_TIMEOUT = 1.5
 
-# Segundos a esperar otro FIN antes de cerrar conexión
-FINACK_WAIT_TIMEOUT = 5
+# Segundos que espera el thread que envio el FINACK
+# antes de cerrarse (durante esta espera verifica que
+# no llegue otro FIN, lo que significa que no llegó el
+# FINACK)
+FIN_WAIT_TIMEOUT = 5
+
+# Segundos a esperar el FINACK luego de enviar un FIN
+# antes de reintentar enviar el FIN
+FINACK_WAIT_TIMEOUT = 1.5
 
 # Cantidad de reintentos a reenviar FIN o FINACK
 FIN_RETRIES = 10
