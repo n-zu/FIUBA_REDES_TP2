@@ -41,13 +41,16 @@ from .constants import (
 
 
 class SRSocket:
-    def __init__(self, window_size=WINDOW_SIZE, max_size=MAX_SIZE):
+    def __init__(
+        self, window_size=WINDOW_SIZE, max_size=MAX_SIZE, buggyness_factor=0
+    ):
         self.socket = None  # Solo usado para leer y cerrar el socket
         self.send_socket = SafeSendSocket()
         self.packet_thread_handler = threading.Thread(
             target=self.packet_handler
         )
         self.status = SocketStatus()
+        self.buggyness_factor = buggyness_factor
 
         self.number_provider = AckNumberProvider(window_size)
         self.max_size = max_size
@@ -60,7 +63,7 @@ class SRSocket:
     # Conectar tipo cliente
     def connect(self, addr):
         logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
-        self.socket = MuxDemuxStream()
+        self.socket = MuxDemuxStream(buggyness_factor=self.buggyness_factor)
         self.socket.connect(addr)
         self.send_socket.set_socket(self.socket)
         # Esperar CONNACK
