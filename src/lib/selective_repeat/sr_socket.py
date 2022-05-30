@@ -28,6 +28,7 @@ from .constants import (
     CONNACK_WAIT_TIMEOUT,
     CONNECT_RETRIES,
     ACK_TIMEOUT,
+    ACK_RETRIES,
     FIN_RETRIES,
     FIN_WAIT_TIMEOUT,
     FINACK_WAIT_TIMEOUT,
@@ -262,6 +263,9 @@ class SRSocket:
         if self.ack_register.check_acknowledged(packet):
             return
 
+        if send_attempt > ACK_RETRIES:
+            self.__force_close()
+
         logger.warning(
             f"Packet with number {packet.number()} not acknowledged on time,"
             f" resending it (attempt {send_attempt})"
@@ -279,6 +283,9 @@ class SRSocket:
         timer.name = f"Timer-{packet.number()}-{attempts}"
         logger.info(f"Sending packet of type {packet}")
         timer.start()
+
+    def __force_close(self):
+        pass
 
     def send(self, buffer):
         if self.status.get() != CONNECTED:

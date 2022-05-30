@@ -177,10 +177,9 @@ def test_buggy_client_send():
         thread.join()
         socket.close()
 
-        listener.close()
-
         logger.success(f"Client {i} Succesfully handled")
 
+    listener.close()
     assert output == msg
 
 

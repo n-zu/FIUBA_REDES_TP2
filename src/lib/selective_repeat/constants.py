@@ -32,6 +32,10 @@ CONNECT_RETRIES = 50
 # no se recibió el ACK
 ACK_TIMEOUT = 1.5
 
+# Cantidad de veces a reintentar enviar un paquete
+# antes de cerrar la conexion
+ACK_RETRIES = 50
+
 # Primer numero de secuencia a enviar
 INITIAL_PACKET_NUMBER = 0
 
@@ -43,7 +47,7 @@ MAX_SIZE = 1024
 STOP_CHECK_INTERVAL = 0.1
 
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
-WINDOW_SIZE = 50
+WINDOW_SIZE = 1
 ACK_NUMBERS = 4294967296
 
 # --- CONSTANTES DE ESTADOS ---
