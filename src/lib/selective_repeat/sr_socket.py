@@ -228,7 +228,7 @@ class SRSocket:
             return
 
         self.status.set_status(FORCED_CLOSING)
-        # self.send_socket.send_all(Packet(FIN).encode())
+        self.send_socket.send_all(Packet(FIN).encode())
 
         self.packet_thread_handler.join()
         self.socket.close()
