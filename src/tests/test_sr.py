@@ -191,6 +191,11 @@ def test_buggy_client_send():
     assert output == msg
 
 
+# ignored due to unmet preconditions:
+# as we are using force_close to simulate socket death we need to
+# - expose force_close publically
+# - dont send FIN on forcing close
+# @pytest.mark.ignore
 def test_client_force_closes():
     port = 57121
     msg = b"IM BUGGY"
@@ -202,8 +207,9 @@ def test_client_force_closes():
     def client(port):
         client = SRSocket()
         client.connect(("127.0.0.1", port))
+        client.send(msg)
         sleep(0.1)
-        client.force_close()
+        client.__force_close()
 
     thread = Thread(target=client, args=[port])
     thread.start()
@@ -212,11 +218,11 @@ def test_client_force_closes():
     socket.send(msg)
     thread.join()
     try:
-        for i in range(100):
+        for i in range(10):
             socket.send(msg)
             sleep(1)
         assert False
-    except:
+    except Exception:
         assert True
         listener.close()
         logger.success("Closed Without waiting to send all packets")
