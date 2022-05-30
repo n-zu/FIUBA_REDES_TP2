@@ -17,6 +17,7 @@ class AckNumberProvider:
         self.acked = set()
         self.lock = threading.Lock()
         self.available = queue.SimpleQueue()
+        self.window_size = window_size
         for i in range(
             INITIAL_PACKET_NUMBER, INITIAL_PACKET_NUMBER + window_size
         ):
@@ -37,7 +38,7 @@ class AckNumberProvider:
     def __update_oldest(self):
         while self.oldest_not_acked in self.acked:
             self.available.put(
-                (self.oldest_not_acked + WINDOW_SIZE) % ACK_NUMBERS
+                (self.oldest_not_acked + self.window_size) % ACK_NUMBERS
             )
             self.acked.remove(self.oldest_not_acked)
             self.oldest_not_acked = (self.oldest_not_acked + 1) % ACK_NUMBERS

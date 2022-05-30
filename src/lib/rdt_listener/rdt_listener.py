@@ -25,15 +25,15 @@ class RDTListener:
     def listen(self, queue_size):
         self.mux_demux_listener.listen(queue_size)
 
-    def accept(self):
+    def accept(self, **socket_args):
         new_mux_demux_stream = self.mux_demux_listener.accept()
         if new_mux_demux_stream is None:
             return None
 
         if self.rdt_method == STOP_AND_WAIT:
-            new_rdt_stream = SAWSocket(self.buggyness_factor)
+            new_rdt_stream = SAWSocket(self.buggyness_factor, **socket_args)
         elif self.rdt_method == SELECTIVE_REPEAT:
-            new_rdt_stream = SRSocket()
+            new_rdt_stream = SRSocket(**socket_args)
         else:
             raise NotImplementedError
         new_rdt_stream.from_listener(new_mux_demux_stream)

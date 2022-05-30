@@ -46,6 +46,10 @@ STOP_CHECK_INTERVAL = 0.1
 WINDOW_SIZE = 50
 ACK_NUMBERS = 4294967296
 
+# Cada cuanto checkear en el recv (si no tiene timeout) si se
+# cerro la conexion
+RECV_CHECK_INTERVAL = 1
+
 # --- CONSTANTES DE ESTADOS ---
 
 # No envie el CONNECT (si soy socket) ni lo recibi (si soy listener)

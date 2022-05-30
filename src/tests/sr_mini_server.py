@@ -26,8 +26,8 @@ welcoming_message_bytes = len(welcoming_message).to_bytes(
 
 def __handle_client(socket, stop):
     socket.send(welcoming_message_bytes)
-    length = int.from_bytes(socket.recv(4), byteorder="big")
-    data = socket.recv(length)
+    length = int.from_bytes(socket.recv_exact(4), byteorder="big")
+    data = socket.recv_exact(length)
     data = data.decode("utf-8")
     if data == client_stop:
         logger.success("Received stop message")
@@ -78,13 +78,13 @@ def start_server(
 
 def start_client(i):
     logger.success(f"Starting client {i}")
-    socket = SRSocket(buggyness_factor=BUGGY)
-    socket.connect(LISTEN_ADDR)
+    socket = SRSocket()
+    socket.connect(LISTEN_ADDR, buggyness_factor=BUGGY)
     if i % 2 == 0:
         socket.send(client_hello_bytes)
 
-    length = int.from_bytes(socket.recv(4), byteorder="big")
-    data = socket.recv(length)
+    length = int.from_bytes(socket.recv_exact(4), byteorder="big")
+    data = socket.recv_exact(length)
     data = data.decode("utf-8")
     if data != welcoming_message:
         raise Exception("Data received does not match expected data")
@@ -100,8 +100,8 @@ def start_client(i):
 
 
 def stopper_client():
-    socket = SRSocket(buggyness_factor=BUGGY)
-    socket.connect(LISTEN_ADDR)
+    socket = SRSocket()
+    socket.connect(LISTEN_ADDR, buggyness_factor=BUGGY)
     logger.info("Sending stop message")
     socket.send(client_stop_bytes)
 

@@ -1,8 +1,20 @@
 import pytest
 from loguru import logger
-from lib.selective_repeat.sr_socket import SRSocket
+from lib.selective_repeat.sr_socket import SRSocket, EndOfStream
 from lib.rdt_listener.rdt_listener import RDTListener
-from threading import Thread
+from threading import Thread, Lock
+import filecmp
+import os
+
+port_lock = Lock()
+port = 57120
+
+
+def __get_port():
+    global port
+    with port_lock:
+        port += 1
+        return port
 
 
 def __client(port, data):
@@ -13,7 +25,7 @@ def __client(port, data):
 
 
 def test_should_receive_data():
-    port = 57121
+    port = __get_port()
     data = b"hola"
     listener = RDTListener("selective_repeat")
     listener.bind(("127.0.0.1", port))
@@ -25,7 +37,7 @@ def test_should_receive_data():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(len(data))
+    output = socket.recv_exact(len(data))
     thread.join()
     socket.close()
     listener.close()
@@ -34,7 +46,7 @@ def test_should_receive_data():
 
 
 def test_should_receive_data_big():
-    port = 57121 + 1
+    port = __get_port()
     data = b"pls_work" * 10000
     listener = RDTListener("selective_repeat")
     listener.bind(("127.0.0.1", port))
@@ -44,7 +56,7 @@ def test_should_receive_data_big():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(len(data))
+    output = socket.recv_exact(len(data))
     thread.join()
     socket.close()
     listener.close()
@@ -53,7 +65,7 @@ def test_should_receive_data_big():
 
 
 def test_should_receive_data_big_buggy():
-    port = 57121 + 2
+    port = __get_port()
     data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
     listener = RDTListener("selective_repeat", 0.25)
     listener.bind(("127.0.0.1", port))
@@ -63,16 +75,20 @@ def test_should_receive_data_big_buggy():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(len(data))
+    output = socket.recv_exact(len(data))
     thread.join()
     socket.close()
     listener.close()
+
+    for i, b in enumerate(data):
+        if b != output[i]:
+            print(f"Diff position {i}: {b} != {output[i]}")
 
     assert output == data
 
 
 def test_should_send_data():
-    port = 57121 + 3
+    port = __get_port()
     msg = b"Server: Hello"
 
     listener = RDTListener("selective_repeat")
@@ -82,7 +98,7 @@ def test_should_send_data():
     def client(port):
         client = SRSocket()
         client.connect(("127.0.0.1", port))
-        cli_msg = client.recv(len(msg))
+        cli_msg = client.recv_exact(len(msg))
         assert cli_msg == msg
         client.close()
 
@@ -98,7 +114,7 @@ def test_should_send_data():
 
 
 def test_should_send_and_receive_data():
-    port = 57121 + 4
+    port = __get_port()
     msg_1 = b"Client: Hello"
     msg_2 = b"Server: Hello"
     msg_3 = b"Client: Bye"
@@ -111,7 +127,7 @@ def test_should_send_and_receive_data():
         client = SRSocket()
         client.connect(("127.0.0.1", port))
         client.send(msg_1)
-        cli_msg = client.recv(len(msg_2))
+        cli_msg = client.recv_exact(len(msg_2))
         assert cli_msg == msg_2
         client.send(msg_3)
         client.close()
@@ -120,21 +136,20 @@ def test_should_send_and_receive_data():
     thread.start()
     socket = listener.accept()
 
-    srv_msg = socket.recv(len(msg_1))
+    srv_msg = socket.recv_exact(len(msg_1))
     assert srv_msg == msg_1
 
     socket.send(msg_2)
 
-    srv_msg = socket.recv(len(msg_3))
+    srv_msg = socket.recv_exact(len(msg_3))
     assert srv_msg == msg_3
     thread.join()
     socket.close()
     listener.close()
 
 
-@pytest.mark.slow
 def test_should_receive_data_very_buggy():
-    port = 57121 + 5
+    port = __get_port()
     data = b"msg"
     listener = RDTListener("selective_repeat", 0.5)
     listener.bind(("127.0.0.1", port))
@@ -144,7 +159,7 @@ def test_should_receive_data_very_buggy():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(len(data))
+    output = socket.recv_exact(len(data))
     thread.join()
     socket.close()
     listener.close()
@@ -152,8 +167,9 @@ def test_should_receive_data_very_buggy():
     assert output == data
 
 
+@pytest.mark.slow
 def test_buggy_client_send():
-    port = 57121
+    port = __get_port()
     msg = b"IM BUGGY"
 
     listener = RDTListener("selective_repeat", buggyness_factor=0.5)
@@ -161,8 +177,8 @@ def test_buggy_client_send():
     listener.listen(1)
 
     def client(port):
-        client = SRSocket(buggyness_factor=0.5)
-        client.connect(("127.0.0.1", port))
+        client = SRSocket()
+        client.connect(("127.0.0.1", port), buggyness_factor=0.5)
         client.send(msg)
         client.close()
 
@@ -172,17 +188,100 @@ def test_buggy_client_send():
         thread.start()
         socket = listener.accept()
 
-        output = socket.recv(len(msg))
+        output = socket.recv_exact(len(msg))
+
+        thread.join()
+        socket.close()
+
+        logger.success(f"Client {i} Succesfully handled")
+        assert output == msg
+
+    listener.close()
+
+
+def test_actual_file():
+    port = __get_port()
+    path = os.path.dirname(os.path.abspath(__file__)) + "/"
+
+    listener = RDTListener("selective_repeat")
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    def client(port):
+        client = SRSocket(window_size=300, max_size=10000)
+        client.connect(("127.0.0.1", port))
+        with open(path + "test_file", "rb") as f:
+            data = f.read(10000)
+            while len(data):
+                client.send(data)
+                data = f.read(10000)
+
+        client.close()
+
+    thread = Thread(target=client, args=[port])
+    thread.start()
+    socket = listener.accept(window_size=300, max_size=10000)
+
+    with open(path + "test_file_1", "wb") as f:
+        output = socket.recv(buff_size=10000)
+        f.write(output)
+        while True:
+            try:
+                output = socket.recv(buff_size=10000)
+                f.write(output)
+            except EndOfStream:
+                break
 
         thread.join()
         socket.close()
 
         listener.close()
 
-        logger.success(f"Client {i} Succesfully handled")
+    assert filecmp.cmp(path + "test_file", path + "test_file_1", shallow=False)
+    os.remove(path + "test_file_1")
 
-    assert output == msg
+
+def test_actual_file_buggy():
+    port = __get_port()
+    path = os.path.dirname(os.path.abspath(__file__)) + "/"
+
+    listener = RDTListener("selective_repeat", buggyness_factor=0.25)
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    def client(port):
+        client = SRSocket(window_size=800, max_size=10000)
+        client.connect(("127.0.0.1", port), buggyness_factor=0.25)
+        with open(path + "test_file", "rb") as f:
+            data = f.read(10000)
+            while len(data):
+                client.send(data)
+                data = f.read(10000)
+
+        client.close()
+
+    thread = Thread(target=client, args=[port])
+    thread.start()
+    socket = listener.accept(window_size=800, max_size=10000)
+
+    with open(path + "test_file_2", "wb") as f:
+        output = socket.recv(buff_size=10000)
+        f.write(output)
+        while True:
+            try:
+                output = socket.recv(buff_size=10000)
+                f.write(output)
+            except EndOfStream:
+                break
+
+        thread.join()
+        socket.close()
+
+        listener.close()
+
+    assert filecmp.cmp(path + "test_file", path + "test_file_2", shallow=False)
+    os.remove(path + "test_file_2")
 
 
 if __name__ == "__main__":
-    test_buggy_client_send()
+    test_actual_file_buggy()

@@ -29,11 +29,11 @@ def test_should_receive_data_from_multiple_clients():
     thread_2.start()
     socket_2 = listener.accept()
 
-    output_1 = socket_1.recv(len(data_1))
+    output_1 = socket_1.recv_exact(len(data_1))
     thread_1.join()
     socket_1.close()
 
-    output_2 = socket_2.recv(len(data_2))
+    output_2 = socket_2.recv_exact(len(data_2))
     thread_2.join()
     socket_2.close()
 
@@ -57,7 +57,7 @@ def test_should_send_and_receive_data_from_multiple_clients():
         client = SRSocket()
         client.connect(("127.0.0.1", port))
         client.send(data)
-        msg = client.recv(len(server_message))
+        msg = client.recv_exact(len(server_message))
         client.send(client_response)
         client.close()
         assert msg == server_message
@@ -74,15 +74,15 @@ def test_should_send_and_receive_data_from_multiple_clients():
     thread_2.start()
     socket_2 = listener.accept()
 
-    output_1 = socket_1.recv(len(data_1))
+    output_1 = socket_1.recv_exact(len(data_1))
     socket_1.send(server_message)
-    socket_1.recv(len(client_response))
+    socket_1.recv_exact(len(client_response))
     thread_1.join()
     socket_1.close()
 
-    output_2 = socket_2.recv(len(data_2))
+    output_2 = socket_2.recv_exact(len(data_2))
     socket_2.send(server_message)
-    socket_2.recv(len(client_response))
+    socket_2.recv_exact(len(client_response))
     thread_2.join()
     socket_2.close()
 

@@ -33,25 +33,24 @@ from .constants import (
     FINACK_WAIT_TIMEOUT,
     CLOSING,
     MAX_SIZE,
+    RECV_CHECK_INTERVAL,
     STOP_CHECK_INTERVAL,
     NOT_CONNECTED,
     CONNECTED,
     INITIAL_PACKET_NUMBER,
     WINDOW_SIZE,
 )
+import time
 
 
 class SRSocket:
-    def __init__(
-        self, window_size=WINDOW_SIZE, max_size=MAX_SIZE, buggyness_factor=0
-    ):
+    def __init__(self, window_size=WINDOW_SIZE, max_size=MAX_SIZE):
         self.socket = None  # Solo usado para leer y cerrar el socket
         self.send_socket = SafeSendSocket()
         self.packet_thread_handler = threading.Thread(
             target=self.packet_handler
         )
         self.status = SocketStatus()
-        self.buggyness_factor = buggyness_factor
 
         self.number_provider = AckNumberProvider(window_size)
         self.max_size = max_size
@@ -61,10 +60,13 @@ class SRSocket:
             self.send_socket.send_all, self.upstream_channel
         )
 
+    def set_window_size(self, window_size):
+        self.number_provider.set_window_size(window_size)
+
     # Conectar tipo cliente
-    def connect(self, addr):
+    def connect(self, addr, buggyness_factor=0):
         logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
-        self.socket = MuxDemuxStream(buggyness_factor=self.buggyness_factor)
+        self.socket = MuxDemuxStream(buggyness_factor=buggyness_factor)
         self.socket.connect(addr)
         self.send_socket.set_socket(self.socket)
         self.ack_register.enable_wait_first()
@@ -172,6 +174,7 @@ class SRSocket:
                 self.ack_register.acknowledge(packet)
             elif packet.type == FIN:
                 self.status.set_status(CLOSING)
+                self.ack_register.stop()
                 self.__wait_finack_arrived(packet.ack())
             elif packet.type == FINACK:
                 logger.warning("Received FINACK packet but a FIN wasn't sent")
@@ -296,21 +299,36 @@ class SRSocket:
     def recv(self, buff_size, timeout=None):
         if self.status.get() == NOT_CONNECTED:
             raise Exception("Socket is not connected")
+        logger.trace("Trying to receive data (buff_size %d)" % buff_size)
+        start = time.time()
 
-        logger.debug("Trying to receive data (buff_size %d)" % buff_size)
+        while True:
+            try:
+                info_body_bytes = self.upstream_channel.get_bytes(
+                    buff_size, RECV_CHECK_INTERVAL
+                )
+                logger.trace("Received data (%d bytes)" % len(info_body_bytes))
+                return info_body_bytes
+            except (TimeoutError, socket.timeout) as e:
+                if self.status.get() == CLOSING:
+                    raise EndOfStream("Connection was closed") from e
+                if timeout and time.time() - start > timeout:
+                    raise
 
-        try:
-            info_body_bytes = self.upstream_channel.get_bytes(
-                buff_size, timeout
-            )
-        except TimeoutError or socket.timeout as e:
+    # If it times out or there is an end of stream, it returns
+    # the data read so far
+    def recv_exact(self, size, timeout=None):
+        buffer = b""
+        start = time.time()
+        while len(buffer) < size and (
+            not timeout or time.time() - start < timeout
+        ):
+            buffer += self.recv(size - len(buffer), timeout)
 
-            if self.status.get() == CLOSING:
-                raise Exception(
-                    "Connection was closed by the other end, reached end of"
-                    " stream"
-                ) from e
-            raise e
+        if len(buffer) == 0:
+            raise TimeoutError("No data received")
+        return buffer
 
-        logger.debug("Received data (%d bytes)" % len(info_body_bytes))
-        return info_body_bytes
+
+class EndOfStream(Exception):
+    pass
