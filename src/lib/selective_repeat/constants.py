@@ -47,7 +47,7 @@ MAX_SIZE = 1024
 STOP_CHECK_INTERVAL = 0.1
 
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
-WINDOW_SIZE = 1
+WINDOW_SIZE = 50
 ACK_NUMBERS = 4294967296
 
 # --- CONSTANTES DE ESTADOS ---
@@ -58,3 +58,5 @@ NOT_CONNECTED = "NOT_CONNECTED"
 CONNECTED = "CONNECTED"
 # Mandé o me mandaron un FIN
 CLOSING = "CLOSING"
+# No me estan respondiendo, quiero cerrar sin coordinar
+FORCED_CLOSING = "FORCED_CLOSING"

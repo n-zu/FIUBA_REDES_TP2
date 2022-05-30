@@ -156,28 +156,35 @@ def test_buggy_client_send():
     port = 57121
     msg = b"IM BUGGY"
 
-    listener = RDTListener("selective_repeat", buggyness_factor=0.5)
+    listener = RDTListener("selective_repeat", buggyness_factor=0.2)
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
 
     def client(port):
-        client = SRSocket(buggyness_factor=0.5)
+        client = SRSocket(buggyness_factor=0.2)
         client.connect(("127.0.0.1", port))
         client.send(msg)
         client.close()
 
-    for i in range(10):
+    connections = []
+
+    for i in range(3):
 
         thread = Thread(target=client, args=[port])
         thread.start()
         socket = listener.accept()
+
+        connections.append([socket, thread])
+
+    for connection in connections:
+        socket, thread = connection
 
         output = socket.recv(len(msg))
 
         thread.join()
         socket.close()
 
-        logger.success(f"Client {i} Succesfully handled")
+        logger.success("Client Succesfully handled")
 
     listener.close()
     assert output == msg
