@@ -6,8 +6,8 @@ import random
 from loguru import logger
 
 LISTEN_ADDR = ("127.0.0.1", 1234)
-BUGGY = 0.3
-CLIENTS = 5
+BUGGY = 0.2
+CLIENTS = 50
 
 client_hello = "Hello from client"
 client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(

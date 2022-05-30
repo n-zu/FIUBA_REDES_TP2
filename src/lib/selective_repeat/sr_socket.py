@@ -28,15 +28,17 @@ from .constants import (
     CONNACK_WAIT_TIMEOUT,
     CONNECT_RETRIES,
     ACK_TIMEOUT,
+    ACK_RETRIES,
     FIN_RETRIES,
     FIN_WAIT_TIMEOUT,
     FINACK_WAIT_TIMEOUT,
-    CLOSING,
     MAX_SIZE,
     RECV_CHECK_INTERVAL,
     STOP_CHECK_INTERVAL,
     NOT_CONNECTED,
     CONNECTED,
+    CLOSING,
+    FORCED_CLOSING,
     INITIAL_PACKET_NUMBER,
     WINDOW_SIZE,
 )
@@ -152,7 +154,9 @@ class SRSocket:
 
         while (
             self.status.get() == CONNECTED
-        ) or self.ack_register.have_unacknowledged():
+            or self.ack_register.have_unacknowledged()
+            and self.status.get() != FORCED_CLOSING
+        ):
             try:
                 packet = Packet.read_from_stream(self.socket)
             except (TimeoutError, socket.timeout):
@@ -221,6 +225,17 @@ class SRSocket:
             "Could not confirm connection was closed for the other end"
         )
 
+    def __force_close(self):
+        if self.status.get() == FORCED_CLOSING:
+            logger.trace("FORCED_CLOSING already in progress")
+            return
+
+        self.status.set_status(FORCED_CLOSING)
+        self.send_socket.send_all(Packet(FIN).encode())
+
+        self.packet_thread_handler.join()
+        self.socket.close()
+
     def close(self):
         self.ack_register.wait_first_acked()
         if self.status.get() == CLOSING:
@@ -265,13 +280,25 @@ class SRSocket:
         if self.ack_register.check_acknowledged(packet):
             return
 
+        if self.status.get() == FORCED_CLOSING:
+            return
+
+        if send_attempt > ACK_RETRIES:
+            return self.__force_close()
+
         logger.warning(
             f"Packet with number {packet.number()} not acknowledged on time,"
             f" resending it (attempt {send_attempt})"
         )
+        logger.debug(f"Resend Attemp {send_attempt}")
         self.__send_info(packet, send_attempt + 1)
 
     def __send_info(self, packet, attempts=0):
+
+        if self.status.get() == FORCED_CLOSING:
+            logger.trace("FORCED_CLOSING in progress")
+            return
+
         self.send_socket.send_all(packet.encode())
         self.ack_register.add_pending(packet)
         timer = threading.Timer(

@@ -32,6 +32,10 @@ CONNECT_RETRIES = 50
 # no se recibió el ACK
 ACK_TIMEOUT = 1.5
 
+# Cantidad de veces a reintentar enviar un paquete
+# antes de cerrar la conexion
+ACK_RETRIES = 5
+
 # Primer numero de secuencia a enviar
 INITIAL_PACKET_NUMBER = 0
 
@@ -58,3 +62,5 @@ NOT_CONNECTED = "NOT_CONNECTED"
 CONNECTED = "CONNECTED"
 # Mandé o me mandaron un FIN
 CLOSING = "CLOSING"
+# No me estan respondiendo, quiero cerrar sin coordinar
+FORCED_CLOSING = "FORCED_CLOSING"
