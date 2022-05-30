@@ -105,11 +105,11 @@ def test_should_send_data():
 
     thread = Thread(target=client, args=[port])
     thread.start()
+
     socket = listener.accept()
-
     socket.send(msg)
-
     socket.close()
+
     listener.close()
     thread.join()
 
@@ -168,9 +168,8 @@ def test_should_receive_data_very_buggy():
     assert output == data
 
 
-@pytest.mark.slow
 def test_buggy_client_send():
-    port = 57121
+    port = __get_port()
     msg = b"IM BUGGY"
 
     listener = RDTListener("selective_repeat", buggyness_factor=0.2)
@@ -258,26 +257,26 @@ def test_actual_file_buggy():
     listener.listen(1)
 
     def client(port):
-        client = SRSocket(window_size=800, max_size=10000)
+        client = SRSocket(window_size=800, max_size=5000)
         client.connect(("127.0.0.1", port), buggyness_factor=0.25)
         with open(path + "test_file", "rb") as f:
-            data = f.read(10000)
+            data = f.read(4500)
             while len(data):
                 client.send(data)
-                data = f.read(10000)
+                data = f.read(4500)
 
         client.close()
 
     thread = Thread(target=client, args=[port])
     thread.start()
-    socket = listener.accept(window_size=800, max_size=10000)
+    socket = listener.accept(window_size=800, max_size=5000)
 
     with open(path + "test_file_2", "wb") as f:
-        output = socket.recv(buff_size=10000)
+        output = socket.recv(buff_size=4500)
         f.write(output)
         while True:
             try:
-                output = socket.recv(buff_size=10000)
+                output = socket.recv(buff_size=4500)
                 f.write(output)
             except EndOfStream:
                 break
@@ -297,7 +296,7 @@ def test_actual_file_buggy():
 # - dont send FIN on forcing close
 @pytest.mark.ignore
 def test_client_force_closes():
-    port = 57121
+    port = __get_port()
     msg = b"IM BUGGY"
 
     listener = RDTListener("selective_repeat")

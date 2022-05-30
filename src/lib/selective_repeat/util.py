@@ -1,6 +1,9 @@
 from .constants import (
+    CLOSED,
+    FORCED_CLOSING,
     INITIAL_PACKET_NUMBER,
     NOT_CONNECTED,
+    PEER_CLOSED,
     WINDOW_SIZE,
     ACK_NUMBERS,
 )
@@ -172,3 +175,7 @@ class SocketStatus:
     def get(self):
         with self.lock:
             return self.status
+
+    def is_closed(self):
+        with self.lock:
+            return self.status in (CLOSED, FORCED_CLOSING, PEER_CLOSED)
