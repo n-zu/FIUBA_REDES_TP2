@@ -21,7 +21,6 @@ def upload_to_server(socket, path, filename, length):
 	counter = 0
 	with open(os.path.join(path, filename), "wb") as file:
 		while counter < length:
-			#data = str.from_bytes(socket.recv(MIN_SIZE), byteorder=ENDIANESS)
 			data = socket.recv(MIN_SIZE)
 			file.write(data)
 			print(data)
@@ -37,7 +36,7 @@ def upload_to_server(socket, path, filename, length):
 def download_from_server(socket, path, filename):
 	length = 0
 	try:
-		length = os.path.getsize(filename)
+		length = os.path.getsize(os.path.join(path, filename))
 	except:
 		logger.error('file not found')
 
@@ -51,12 +50,15 @@ def download_from_server(socket, path, filename):
 
 	socket.send((CONFIRM_DOWNLOAD_HEADER).to_bytes(1, byteorder=ENDIANESS))
 	socket.send((length).to_bytes(8, byteorder=ENDIANESS))
+	print("LENGTH: " + str(length))
 
 	counter = 0
-	with open(os.path.join(path, filename), 'r') as file:
+	with open(os.path.join(path, filename), 'rb') as file:
 		while counter < length:
 			data = file.read(MIN_SIZE)
 			socket.send(data)
+			#print("data: " + data)
+			print("counter: "+ str(counter))
 			counter += len(data)
 
 	logger.info(f'server finished sending {filename}')
@@ -68,6 +70,7 @@ def check_type(socket, path):
 	type_byte = socket.recv(1)
 	type = int.from_bytes(type_byte, byteorder=ENDIANESS)
 	print("TYPE: " + str(type))
+
 	if type == 0:
 		length = int.from_bytes(socket.recv(8), byteorder=ENDIANESS)
 		print("LENGTH: " + str(length))
@@ -79,7 +82,9 @@ def check_type(socket, path):
 
 	elif type == 1:
 		filename_length = int.from_bytes(socket.recv(2), byteorder=ENDIANESS)
-		filename = int.from_bytes(socket.recv(filename_length), byteorder=ENDIANESS)
+		print("FILENAME LENGTH: " + str(filename_length))
+		filename = socket.recv(filename_length).decode()
+		print("FILENAME: " + filename)
 		download_from_server(socket, path, filename)
 
 	else:

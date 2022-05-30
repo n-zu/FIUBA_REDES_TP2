@@ -7,9 +7,10 @@ import sys
 
 ENDIANESS = 'little'
 BYTES_READ = 1024
+CONFIRM_DOWNLOAD_HEADER = 2
 
 def download(endianess, bytes_read):
-    args = args_client(True)
+    args = args_client(False)
 
     logger.debug("arguments read")
 
@@ -25,8 +26,9 @@ def download(endianess, bytes_read):
     FILENAME_BYTES = FILENAME.encode()
 
     FILENAME_LEN = len(FILENAME_BYTES).to_bytes(2, byteorder=endianess)
-    
-    ADDR = (HOST, PORT)
+    print("FILENAME LENGTH: " + str(len(FILENAME_BYTES)))
+
+    ADDR = (HOST, int(PORT))
 
     logger.info("creating socket")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,8 +43,9 @@ def download(endianess, bytes_read):
     client.send(FILENAME_LEN)
     client.send(FILENAME_BYTES)
 
-    type = client.recv(1)
-    if type != 3:
+    type_byte = client.recv(1)
+    type = int.from_bytes(type_byte, byteorder=ENDIANESS)
+    if type != CONFIRM_DOWNLOAD_HEADER:
         logger.error("wrong packet type")
         return
 
@@ -50,17 +53,16 @@ def download(endianess, bytes_read):
     file_size_bytes = client.recv(8)
 
     file_size = int.from_bytes(file_size_bytes, byteorder=endianess)
+    print("LENGTH: " + str(file_size))
 
     logger.debug("downloading body")
-    with open(FILEPATH + FILENAME, 'wb') as f:
-        f.write(bytes([10]))
-        bytes_count = file_size % bytes_read
-        body = client.recv(bytes_count)
-        f.write(body)
-        while bytes_count < file_size:
-            body = client.recv(bytes_read)
-            f.write(body)
-            bytes_count += bytes_read
+    counter = 0
+    with open(os.path.join(FILEPATH, FILENAME), "wb") as file:
+        while counter < file_size:
+            data = client.recv(bytes_read)
+            file.write(data)
+            print(data.decode())
+            counter += len(data)
     logger.debug("body download finished")
 
     logger.info("closing socket")

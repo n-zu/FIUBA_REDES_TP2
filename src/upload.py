@@ -74,7 +74,9 @@ def upload(endianess, bytes_read):
     if response == UPLOAD_SUCCESSFUL_HEADER:
         logger.info("successfull upload")
     elif response == ERROR_HEADER:
-        logger.info("responded error")
+        logger.error("server responeded with error")
+        error_byte = client.recv(1)
+        error = int.from_bytes(error_byte, byteorder=ENDIANESS)
 
 
     logger.info("closing socket")
