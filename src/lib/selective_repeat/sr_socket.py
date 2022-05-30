@@ -222,13 +222,13 @@ class SRSocket:
             "Could not confirm connection was closed for the other end"
         )
 
-    def __force_close(self):
+    def force_close(self):
         if self.status.get() == FORCED_CLOSING:
             logger.trace("FORCED_CLOSING already in progress")
             return
 
         self.status.set_status(FORCED_CLOSING)
-        self.send_socket.send_all(Packet(FIN).encode())
+        # self.send_socket.send_all(Packet(FIN).encode())
 
         self.packet_thread_handler.join()
         self.socket.close()
@@ -278,12 +278,13 @@ class SRSocket:
             return
 
         if send_attempt > ACK_RETRIES:
-            self.__force_close()
+            self.force_close()
 
         logger.warning(
             f"Packet with number {packet.number()} not acknowledged on time,"
             f" resending it (attempt {send_attempt})"
         )
+        logger.debug(f"Resend Attemp {send_attempt}")
         self.__send_info(packet, send_attempt + 1)
 
     def __send_info(self, packet, attempts=0):

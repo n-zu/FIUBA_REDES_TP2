@@ -34,7 +34,7 @@ ACK_TIMEOUT = 1.5
 
 # Cantidad de veces a reintentar enviar un paquete
 # antes de cerrar la conexion
-ACK_RETRIES = 50
+ACK_RETRIES = 5
 
 # Primer numero de secuencia a enviar
 INITIAL_PACKET_NUMBER = 0

@@ -1,3 +1,4 @@
+from time import sleep
 import pytest
 from loguru import logger
 from lib.selective_repeat.sr_socket import SRSocket
@@ -190,5 +191,36 @@ def test_buggy_client_send():
     assert output == msg
 
 
+def test_client_force_closes():
+    port = 57121
+    msg = b"IM BUGGY"
+
+    listener = RDTListener("selective_repeat")
+    listener.bind(("127.0.0.1", port))
+    listener.listen(1)
+
+    def client(port):
+        client = SRSocket()
+        client.connect(("127.0.0.1", port))
+        sleep(0.1)
+        client.force_close()
+
+    thread = Thread(target=client, args=[port])
+    thread.start()
+    socket = listener.accept()
+
+    socket.send(msg)
+    thread.join()
+    try:
+        for i in range(100):
+            socket.send(msg)
+            sleep(1)
+        assert False
+    except:
+        assert True
+        listener.close()
+        logger.success("Closed Without waiting to send all packets")
+
+
 if __name__ == "__main__":
-    test_buggy_client_send()
+    test_client_force_closes()
