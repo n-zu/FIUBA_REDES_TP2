@@ -3,7 +3,6 @@ import threading
 import os
 from args_server import args_server
 import socket
-import msvcrt
 
 MIN_SIZE = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -23,7 +22,6 @@ def upload_to_server(socket, path, filename, length):
 		while counter < length:
 			data = socket.recv(MIN_SIZE)
 			file.write(data)
-			print(data)
 			counter += len(data)
 
 	logger.info(f'server finished receiving {filename}')
@@ -50,15 +48,13 @@ def download_from_server(socket, path, filename):
 
 	socket.send((CONFIRM_DOWNLOAD_HEADER).to_bytes(1, byteorder=ENDIANESS))
 	socket.send((length).to_bytes(8, byteorder=ENDIANESS))
-	print("LENGTH: " + str(length))
+	logger.debug(f"file length: {str(length)}")
 
 	counter = 0
 	with open(os.path.join(path, filename), 'rb') as file:
 		while counter < length:
 			data = file.read(MIN_SIZE)
 			socket.send(data)
-			#print("data: " + data)
-			print("counter: "+ str(counter))
 			counter += len(data)
 
 	logger.info(f'server finished sending {filename}')
