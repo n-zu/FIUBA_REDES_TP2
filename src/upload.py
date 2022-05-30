@@ -37,12 +37,14 @@ def upload(endianess, bytes_read):
     logger.debug("file size accessed successfully")
 
     SIZE = SIZE_INT.to_bytes(8, byteorder=endianess)
+    print("LENGTH: " + str(SIZE_INT))
 
     FILENAME_BYTES = FILENAME.encode()
 
     FILENAME_LEN = len(FILENAME_BYTES).to_bytes(2, byteorder=endianess)
+    print("FILENAME LENGTH: " + str(len(FILENAME_BYTES)))
 
-    ADDR = (HOST, PORT)
+    ADDR = (HOST, int(PORT))
 
     logger.info("creating socket")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -61,12 +63,13 @@ def upload(endianess, bytes_read):
     logger.debug("sending body")
     #send body
     with open(FILEPATH + FILENAME, 'rb') as f:
-        while bytes := f.read(bytes_read):
-            client.send(bytes)
-            print(bytes)
+        while file_bytes := f.read(bytes_read):
+            client.send(file_bytes)
+            print(file_bytes)
 
     logger.info("reading response")
-    response = client.read(1)
+    response_byte = client.recv(1)
+    response = int.from_bytes(response_byte, byteorder=ENDIANESS)
 
     if response == UPLOAD_SUCCESSFUL_HEADER:
         logger.info("successfull upload")

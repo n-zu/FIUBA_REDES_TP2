@@ -3,6 +3,7 @@ import threading
 import os
 from args_server import args_server
 import socket
+import msvcrt
 
 MIN_SIZE = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -20,8 +21,10 @@ def upload_to_server(socket, path, filename, length):
 	counter = 0
 	with open(os.path.join(path, filename), "wb") as file:
 		while counter < length:
-			data = str.from_bytes(socket.recv(MIN_SIZE), byteorder=ENDIANESS)
+			#data = str.from_bytes(socket.recv(MIN_SIZE), byteorder=ENDIANESS)
+			data = socket.recv(MIN_SIZE)
 			file.write(data)
+			print(data)
 			counter += len(data)
 
 	logger.info(f'server finished receiving {filename}')
@@ -62,12 +65,16 @@ def download_from_server(socket, path, filename):
 
 
 def check_type(socket, path):
-	type = socket.recv(1)
-
+	type_byte = socket.recv(1)
+	type = int.from_bytes(type_byte, byteorder=ENDIANESS)
+	print("TYPE: " + str(type))
 	if type == 0:
 		length = int.from_bytes(socket.recv(8), byteorder=ENDIANESS)
+		print("LENGTH: " + str(length))
 		filename_length = int.from_bytes(socket.recv(2), byteorder=ENDIANESS)
-		filename = int.from_bytes(socket.recv(filename_length), byteorder=ENDIANESS)
+		print("FILENAME LENGTH: " + str(filename_length))
+		filename = socket.recv(filename_length).decode()
+		print("FILENAME: " + filename)
 		upload_to_server(socket, path, filename, length)
 
 	elif type == 1:
@@ -90,15 +97,26 @@ def start_server():
 	STORAGE = args.storage
 	
 	serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	serverSocket.bind(('', PORT))
+	serverSocket.bind((HOST, int(PORT)))
 
 	serverSocket.listen(1)
 	logger.info('the server is ready to receive')
 
+	threads = []
 	while True:
 		connectionSocket, addr = serverSocket.accept()
 
 		if connectionSocket:
-			threading.Thread(target=check_type, args=(connectionSocket, STORAGE)).start()
+			t = threading.Thread(target=check_type, args=(connectionSocket, STORAGE))
+			threads.append(t)
+			t.start()
+		if msvcrt.kbhit():
+			logger.info("closed program")
+			break
+
+	for t in threads:
+		t.join()
+	return
+
 
 start_server()
