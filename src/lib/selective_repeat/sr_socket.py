@@ -277,8 +277,11 @@ class SRSocket:
         if self.ack_register.check_acknowledged(packet):
             return
 
+        if self.status.get() == FORCED_CLOSING:
+            return
+
         if send_attempt > ACK_RETRIES:
-            self.__force_close()
+            return self.__force_close()
 
         logger.warning(
             f"Packet with number {packet.number()} not acknowledged on time,"

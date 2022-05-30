@@ -195,7 +195,7 @@ def test_buggy_client_send():
 # as we are using force_close to simulate socket death we need to
 # - expose force_close publically
 # - dont send FIN on forcing close
-# @pytest.mark.ignore
+@pytest.mark.ignore
 def test_client_force_closes():
     port = 57121
     msg = b"IM BUGGY"
