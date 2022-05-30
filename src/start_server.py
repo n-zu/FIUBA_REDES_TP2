@@ -69,22 +69,27 @@ def download_from_server(socket, path, filename):
 def check_type(socket, path):
 	type_byte = socket.recv(1)
 	type = int.from_bytes(type_byte, byteorder=ENDIANESS)
-	print("TYPE: " + str(type))
+	logger.debug(f"header type: {str(type)}")
 
 	if type == 0:
 		length = int.from_bytes(socket.recv(8), byteorder=ENDIANESS)
-		print("LENGTH: " + str(length))
+		logger.debug(f"file length: {str(length)}")
+
 		filename_length = int.from_bytes(socket.recv(2), byteorder=ENDIANESS)
-		print("FILENAME LENGTH: " + str(filename_length))
+		logger.debug(f"filename length: {str(filename_length)}")
+
 		filename = socket.recv(filename_length).decode()
-		print("FILENAME: " + filename)
+		logger.debug(f"filename: {filename}")
+
 		upload_to_server(socket, path, filename, length)
 
 	elif type == 1:
 		filename_length = int.from_bytes(socket.recv(2), byteorder=ENDIANESS)
-		print("FILENAME LENGTH: " + str(filename_length))
+		logger.debug(f"filename length: {str(filename_length)}")
+
 		filename = socket.recv(filename_length).decode()
-		print("FILENAME: " + filename)
+		logger.debug(f"filename: {filename}")
+
 		download_from_server(socket, path, filename)
 
 	else:
@@ -115,9 +120,6 @@ def start_server():
 			t = threading.Thread(target=check_type, args=(connectionSocket, STORAGE))
 			threads.append(t)
 			t.start()
-		if msvcrt.kbhit():
-			logger.info("closed program")
-			break
 
 	for t in threads:
 		t.join()
