@@ -29,7 +29,7 @@ def upload(endianess, bytes_read):
     logger.debug("getting file size")
 
     try:
-        SIZE_INT = os.path.getsize(FILEPATH + FILENAME)
+        SIZE_INT = os.path.getsize(os.path.join(FILEPATH, FILENAME))
     except:
         logger.error("no file found")
         return
@@ -62,7 +62,7 @@ def upload(endianess, bytes_read):
 
     logger.debug("sending body")
     #send body
-    with open(FILEPATH + FILENAME, 'rb') as f:
+    with open(os.path.join(FILEPATH, FILENAME), 'rb') as f:
         while file_bytes := f.read(bytes_read):
             client.send(file_bytes)
 
