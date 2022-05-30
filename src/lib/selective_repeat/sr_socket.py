@@ -239,7 +239,7 @@ class SRSocket:
 
         self.status.set_status(FORCED_CLOSING)
         self.send_socket.send_all(Packet(FIN).encode())
-        logger.error("Forced closing connection" + "-" * 200)
+        logger.error("Fatal error, ending connection abruptly")
         self.packet_thread_handler.join()
         self.socket.close()
 
