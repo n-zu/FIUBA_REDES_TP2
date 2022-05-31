@@ -62,10 +62,15 @@ python3 src/tcp/download.py -H localhost -p 8080 -d client -n README.md
 
 ###### Custom RDT FTP
 
-In `root`
-Create `server` and `client` folders
-
 In `src`
+Create `server` and `client` folders
+Create `hello.txt` file
+
+**Note:** replace `localhost` with your localhost IP address, you should see an error message like:
+```
+Exception: Received packet from invalid address ('127.0.0.1', 8080) - Expected ('localhost', 8080)
+```
+you can take your IP from there
 
 Start server:
 
@@ -75,7 +80,7 @@ python3 -m ftp.start_server -H localhost -p 8080 -s server
 
 Upload file:
 ```
--
+python3 -m ftp.upload -H localhost -p 8080 -s . -n hello.txt
 ```
 
 Download file:

@@ -1,7 +1,7 @@
-from args_client import args_client
-from loguru import logger
-import socket
 import os
+from ftp.args_client import args_client
+from lib.selective_repeat.sr_socket import SRSocket
+from loguru import logger
 
 ENDIANESS = "little"
 BYTES_READ = 1024
@@ -46,7 +46,7 @@ def upload(endianess, bytes_read):
     ADDR = (HOST, int(PORT))
 
     logger.info("creating socket")
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client = SRSocket()
 
     logger.info("conecting to server")
     client.connect(ADDR)
