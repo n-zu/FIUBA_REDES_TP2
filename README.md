@@ -16,7 +16,9 @@ Para ejecutar los tests, ejecutar el comando `pytest`
 > python3 -m tests.test_saw
 > ```
 
-###### Nota (Z)
+##### Notas (Z)
+
+###### SR Socket
 
 > Me anda medio mal python, esto me dio resultado:
 
@@ -35,6 +37,24 @@ Run test: In `src/tests` ( Also SLOW TESTS )
 ```
 python3 -m pytest test_sr.py --runslow
 
+```
+
+###### TCP FTP
+
+In `root`
+Create `server` and `client` folders
+
+Start server:
+
+```
+python3 src/tcp/start_server.py -H localhost -p 8080 -s server
+```
+Upload file
+```
+python3 src/tcp/upload.py -H localhost -p 8080 -s . -n README.md
+```
+```
+python3 src/tcp/download.py -H localhost -p 8080 -d client -n README.md 
 ```
 
 ## Draft

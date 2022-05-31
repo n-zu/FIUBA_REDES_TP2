@@ -24,18 +24,45 @@ def args_client(upload):
         "-q", "--quiet", help="decrease output verbosity", action="store_true"
     )
     parser.add_argument(
-        "-H", "--host", help="server IP address", type=str, metavar=""
+        "-H",
+        "--host",
+        help="server IP address",
+        type=str,
+        metavar="",
+        required=True,
     )
     parser.add_argument(
-        "-p", "--port", help="server port", type=str, metavar=""
+        "-p",
+        "--port",
+        help="server port",
+        type=str,
+        metavar="",
+        required=True,
     )
     if upload:
         parser.add_argument(
-            "-s", "--src", help="source file path", type=str, metavar=""
+            "-s",
+            "--src",
+            help="source file path",
+            type=str,
+            metavar="",
+            required=True,
         )
     else:
         parser.add_argument(
-            "-d", "--dst", help="destination file path", type=str, metavar=""
+            "-d",
+            "--dst",
+            help="destination file path",
+            type=str,
+            metavar="",
+            required=True,
         )
-    parser.add_argument("-n", "--name", help="file name", type=str, metavar="")
+    parser.add_argument(
+        "-n",
+        "--name",
+        help="file name",
+        type=str,
+        metavar="",
+        required=True,
+    )
     return parser.parse_args()
