@@ -85,7 +85,7 @@ python3 -m ftp.upload -H localhost -p 8080 -s . -n hello.txt
 
 Download file:
 ```
--
+python3 -m ftp.download -H 127.0.0.1 -p 8080 -d client -n hello.txt
 ```
 
 ## Draft
