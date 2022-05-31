@@ -49,12 +49,38 @@ Start server:
 ```
 python3 src/tcp/start_server.py -H localhost -p 8080 -s server
 ```
-Upload file
+
+Upload file:
 ```
 python3 src/tcp/upload.py -H localhost -p 8080 -s . -n README.md
 ```
+
+Download file:
 ```
 python3 src/tcp/download.py -H localhost -p 8080 -d client -n README.md 
+```
+
+###### Custom RDT FTP
+
+In `root`
+Create `server` and `client` folders
+
+In `src`
+
+Start server:
+
+```
+python3 -m ftp.start_server -H localhost -p 8080 -s server
+```
+
+Upload file:
+```
+-
+```
+
+Download file:
+```
+-
 ```
 
 ## Draft

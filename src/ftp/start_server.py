@@ -1,8 +1,8 @@
 import os
 import time
 import threading
-from src.ftp.args_server import args_server
-from src.lib.rdt_listener.rdt_listener import RDTListener
+from ftp.args_server import args_server
+from lib.rdt_listener.rdt_listener import RDTListener
 
 # from src.lib.selective_repeat.sr_socket import SRSocket
 from loguru import logger
@@ -110,7 +110,6 @@ def start_server():
     protocol = "selective_repeat"
 
     serverSocket = RDTListener(protocol)
-    serverSocket.setblocking(False)
     serverSocket.bind((HOST, int(PORT)))
 
     serverSocket.listen(50)
