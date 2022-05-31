@@ -22,13 +22,28 @@ def args_server():
     )
 
     parser.add_argument(
-        "-H", "--host", help="service IP address", type=str, metavar=""
+        "-H",
+        "--host",
+        help="service IP address",
+        type=str,
+        metavar="",
+        required=True,
     )
     parser.add_argument(
-        "-p", "--port", help="service port", type=str, metavar=""
+        "-p",
+        "--port",
+        help="service port",
+        type=str,
+        metavar="",
+        required=True,
     )
     parser.add_argument(
-        "-s", "--storage", help="storage dir path", type=str, metavar=""
+        "-s",
+        "--storage",
+        help="storage dir path",
+        type=str,
+        metavar="",
+        required=True,
     )
 
     return parser.parse_args()
