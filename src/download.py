@@ -1,16 +1,15 @@
-from sys import byteorder
 from args_client import args_client
 from loguru import logger
 import socket
 import os
-import sys
 
-ENDIANESS = 'little'
+ENDIANESS = "little"
 BYTES_READ = 1024
 CONFIRM_DOWNLOAD_HEADER = 2
 ERROR_HEADER = 4
 UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
+
 
 def download(endianess, bytes_read):
     args = args_client(False)
@@ -21,8 +20,8 @@ def download(endianess, bytes_read):
     PORT = args.port
     FILEPATH = args.dst
     FILENAME = args.name
-    
-    #TODO: log levels
+
+    # TODO: log levels
 
     TYPE = (1).to_bytes(1, byteorder=endianess)
 
@@ -41,7 +40,7 @@ def download(endianess, bytes_read):
 
     logger.info("sending message")
     logger.debug("sending header")
-    #send header
+    # send header
     client.send(TYPE)
     client.send(FILENAME_LEN)
     client.send(FILENAME_BYTES)
@@ -51,11 +50,11 @@ def download(endianess, bytes_read):
 
     if type == ERROR_HEADER:
         error_byte = client.recv(1)
-        error = int.from_bytes(type_byte, byteorder=ENDIANESS)
+        error = int.from_bytes(error_byte, byteorder=ENDIANESS)
         if error == FILE_NOT_FOUND_ERROR:
             logger.error(f"the file {FILENAME} was not found in the server")
         else:
-            logger.error(f"unknown error")
+            logger.error("unknown error")
         logger.error("exiting")
         return
 
@@ -81,5 +80,6 @@ def download(endianess, bytes_read):
     logger.info("closing socket")
     client.close()
     logger.debug("socket closed")
+
 
 download(ENDIANESS, BYTES_READ)
