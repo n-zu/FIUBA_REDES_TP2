@@ -1,6 +1,9 @@
 import queue
 import socket
+import sys
 import threading
+import time
+import traceback
 
 from loguru import logger
 
@@ -8,58 +11,29 @@ from ..exceptions import ProtocolViolation
 from ..packet import *
 
 
-# No envie el CONNECT (si soy socket) ni lo recibi (si soy listener)
-NOT_CONNECTED = "NOT_CONNECTED"
-# Soy Socket de listener, mande el CONNACK y ya recibi info
-# (confirma que el cliente recibio el CONNECT)
-CONNECTING = "CONNECTING"
-# Soy Socket de listener, y recibi el CONNECT
-CONNECTED = "CONNECTED"
-# Mande FIN, y recibi FINACK
-FIN_SENT = "FIN_SENT"
-# Recibi FIN y mande FINACK (tal vez no fue recibido)
-FIN_RECV = "FIN_RECEIVED"
-# Desconectado
-DISCONNECTED = "DISCONNECTED"
-
-
-class MTStatus:
-    def __init__(self):
-        self.status = NOT_CONNECTED
-        self.lock = threading.Lock()
-
-    def set(self, status):
-        with self.lock:
-            self.status = status
-
-    def is_equal(self, status):
-        with self.lock:
-            return self.status == status
-
-    def __repr__(self):
-        return self.status
-
-
 class SAWSocketInterface(ABC):
-    PACKET_HANDLER_TIMEOUT = 1
-    ACK_WAIT_TIMEOUT = 0.1
-    SAFETY_TIME_BEFORE_DISCONNECT = 5
-    FINACK_WAIT_TIMEOUT = 2
-    MTU = 4
+    PACKET_HANDLER_TIMEOUT = 0.5
+    ACK_WAIT_TIMEOUT = 1.5
+    SAFETY_TIME_BEFORE_DISCONNECT = 30
+    FINACK_WAIT_TIMEOUT = 5
+    MSS = 4
 
     def __init__(self, initial_state):
         self.socket = None
+        self.socket_recv_lock = threading.Lock()
+        self.socket_send_lock = threading.Lock()
         self.packet_thread_handler = None
-        self.next_packet_number_to_recv = 0
-        self.next_packet_number_to_send = 0
+        self.current_ack_number = 0
+        self.current_info_number = 0
 
         self.timeout = None
         self.block = True
 
         self.state = initial_state
+        self.state_lock = threading.Lock()
 
-        self.ack_queue = queue.Queue()
-        self.finack_queue = queue.Queue()
+        self.ack_queue = queue.SimpleQueue()
+        self.finack_queue = queue.SimpleQueue()
 
         self.info_bytestream = None
 
@@ -67,151 +41,186 @@ class SAWSocketInterface(ABC):
     def handle_connect(self, packet):
         pass
 
+    def recv_exact(self, buff_size):
+        data = b''
+        while len(data) < buff_size:
+            data += self.recv(buff_size - len(data))
+        return data
+
     def set_state(self, state):
         self.state = state
 
     def stop(self):
-        self.state.set_disconnected()
+        with self.state_lock:
+            self.state.set_disconnected()
 
     def packet_handler(self):
         logger.debug("Packet handler started")
         self.socket.settimeout(self.PACKET_HANDLER_TIMEOUT)
         self.socket.setblocking(True)
-        while self.state.can_send() or self.state.can_recv():
-            try:
-                packet = PacketFactory.read_from_stream(self.socket)
-                logger.debug("Handling packet %s" % packet)
+        while True:
+            time.sleep(0.5)
+            with self.state_lock:
+                if not self.state.can_recv() and not self.state.can_send():
+                    logger.critical(f"Packet handler finished")
+                    self.socket.close()
+                    return
+                with self.socket_recv_lock:
+                    try:
+                        packet = PacketFactory.read_from_stream(self.socket)
+                    except socket.timeout:
+                        continue
+                    except ProtocolViolation:
+                        logger.error("Protocol violation")
+                        self.state.set_disconnected()
+                        break
                 packet.be_handled_by(self)
-            except socket.timeout:
-                pass
-            except ProtocolViolation:
-                logger.error("Protocol violation, closing connection")
-                self.state.set_disconnected()
-                self.close()
-                return
+
+        logger.critical(f"Packet handler finished")
         self.socket.close()
 
-
     def received_ack(self, packet):
-        if packet.number == self.next_packet_number_to_send:
+        if packet.number == self.current_info_number:
             logger.debug(
                 f"Received expected ACK packet (Nº {packet.number})"
             )
             self.ack_queue.put(packet)
-            self.next_packet_number_to_send += 1
+            self.current_info_number += 1
         else:
             logger.debug("Received ACK from retransmission, dropping")
 
     def send_ack_for(self, packet):
-        if self.next_packet_number_to_recv == packet.number:
+        if self.current_ack_number == packet.number:
+            logger.success(f"Received expected INFO packet (Nº {packet.number}, data: {packet.body})")
             self.info_bytestream.put_bytes(packet.body)
-            self.next_packet_number_to_recv += 1
+            logger.info("Put bytes in bytestream")
+            self.current_ack_number += 1
         else:
-            logger.warning(f"Received INFO retransmission (expected {self.next_packet_number_to_recv}, got {packet.number}), dropping")
-        self.socket.send_all(bytes(AckPacket(packet.number)))
+            logger.warning(f"Received INFO retransmission (expected {self.current_ack_number}, got {packet.number}), dropping")
+        with self.socket_send_lock:
+            self.socket.send_all(bytes(AckPacket(packet.number)))
 
     def send_fin(self):
         logger.debug("Sending FIN")
-        while True:
+        with self.socket_send_lock:
             self.socket.send_all(bytes(FinPacket()))
-            try:
-                finack = self.finack_queue.get(timeout=self.FINACK_WAIT_TIMEOUT)
-                logger.debug("Received FINACK from queue")
-                return finack
-            except queue.Empty:
-                logger.debug("Timeout waiting for FINACK, sending again")
 
     def handle_info(self, packet):
         logger.debug(f"Received INFO packet while in state {self.state}")
         self.state.handle_info(packet)
 
     def handle_connack(self, packet):
-        logger.debug("Received CONNACK packet")
+        logger.debug("Received CONNACK packet while in state {self.state}")
         self.state.handle_connack(packet)
 
     def handle_ack(self, packet):
-        logger.debug("Received ACK packet")
+        logger.debug(f"Received ACK packet while in state {self.state}")
         self.state.handle_ack(packet)
 
     def handle_fin(self, packet):
         logger.debug(f"Received FIN packet while in state {self.state}")
         self.state.handle_fin(packet)
 
-    def send_finack_for(self, packet):
-        self.socket.send_all(bytes(FinackPacket()))
+    def send_finack_for(self, _packet):
+        logger.info(f"Sending FINACK")
+        with self.socket_send_lock:
+            self.socket.send_all(bytes(FinackPacket()))
 
     def wait_for_fin_retransmission(self):
+        self.socket.settimeout(self.SAFETY_TIME_BEFORE_DISCONNECT)
         while True:
+            logger.info(f"Waiting some time for FIN retransmission with timeout {self.socket.gettimeout()}")
+            time.sleep(2)
             try:
-                self.socket.settimeout(self.SAFETY_TIME_BEFORE_DISCONNECT)
                 packet = PacketFactory.read_from_stream(self.socket)
-                if packet.type == FIN:
+                if packet.type == FinPacket.type:
                     logger.debug("Received FIN retransmission")
-                    self.socket.send_all(bytes(FinackPacket()))
+                    logger.info("Trying to take lock")
+                    with self.socket_send_lock:
+                        logger.info("Took lock")
+                        self.socket.send_all(bytes(FinackPacket()))
                 else:
-                    logger.error("Received packet distinct from FIN while waiting safety time")
+                #elif packet.type != FinackPacket.type:
+                    logger.error(f"Received packet distinct from FIN while waiting safety time ({packet}) (state: {self.state})")
+                    exit(1)
+                    #raise ValueError("Received packet distinct from FIN while waiting safety time")
             except socket.timeout:
                 logger.info("Finished waiting safety time for FIN retransmission")
                 return
 
     def received_finack(self, packet):
         logger.success("Received FINACK")
-        self.finack_queue.put(packet)
+        if self.finack_queue.empty():
+            self.finack_queue.put(packet)
 
     def handle_finack(self, packet):
         logger.debug(f"Received FINACK packet while in state {self.state}")
         self.state.handle_finack(packet)
 
+    def send_fin_reliably(self):
+        old_timeout = self.socket.gettimeout()
+        self.socket.settimeout(2)
+        logger.info(f"Sending FIN reliably with timeout {self.socket.gettimeout()}")
+        while self.finack_queue.empty():
+            self.send_fin()
+            try:
+                packet = PacketFactory.read_from_stream(self.socket)
+                packet.be_handled_by(self)
+            except socket.timeout:
+                logger.warning(f"Timeout waiting for FINACK while in state {self.state}, sending again")
+                continue
+        self.socket.settimeout(old_timeout)
+        logger.success("Sent FIN reliably")
+
+    def send_reliably(self, packet):
+        while True:
+            with self.state_lock:
+                if self.state.can_send():
+                    with self.socket_send_lock:
+                        self.socket.send_all(bytes(packet))
+                else:
+                    raise ProtocolViolation(f"Cannot send packet while in state {self.state}")
+            try:
+                self.ack_queue.get(timeout=self.ACK_WAIT_TIMEOUT)
+                logger.debug("Received ACK packet")
+                break
+            except queue.Empty:
+                logger.warning(
+                    f"Timeout waiting for ACK packet, sending again"
+                )
+
     def send(self, buffer):
         logger.debug(f"Sending buffer {buffer}")
 
-        if self.state.can_send():
-            packets = InfoPacket.split(
-                self.MTU, buffer, initial_number=self.next_packet_number_to_send
-            )
-            logger.debug("Fragmented buffer into %d packets" % len(packets))
+        packets = InfoPacket.split(
+            self.MSS, buffer, initial_number=self.current_info_number
+        )
+        logger.debug(f"Fragmented buffer into {len(packets)} packets")
 
-            for packet in packets:
-                logger.debug(
-                    f"Sending packet Nº {packet.number}, data: {packet.body}"
-                )
-                while True:
-                    self.socket.send_all(bytes(packet))
-                    try:
-                        self.ack_queue.get(timeout=self.ACK_WAIT_TIMEOUT)
-                        logger.debug("Received ACK packet")
-                        break
-                    except queue.Empty:
-                        logger.warning(
-                            "Timeout waiting for ACK packet, sending again"
-                        )
-        else:
-            raise Exception("Cannot send while in state %s" % self.state)
+        for packet in packets:
+            logger.debug(
+                f"Sending packet Nº {packet.number}, data: {packet.body}"
+            )
+            self.send_reliably(packet)
 
     def recv(self, buff_size):
-        if self.state.can_recv():
-            try:
-                info_body_bytes = self.info_bytestream.get_bytes(
-                    buff_size, timeout=self.timeout, block=self.block
+        try:
+            info_body_bytes = self.info_bytestream.get_bytes(
+                buff_size, timeout=self.timeout, block=self.block
+            )
+            if len(info_body_bytes) > 0:
+                logger.debug(
+                    f"Received INFO packet {len(info_body_bytes)} bytes)"
                 )
-                if len(info_body_bytes) > 0:
-                    logger.debug(
-                        "Received INFO packet (%d bytes)"
-                        % len(info_body_bytes)
-                    )
-                    return info_body_bytes
-                else:
-                    return b""
-            except socket.timeout:
-                logger.debug("Received no INFO packet")
-                return b""
-        else:
+            return info_body_bytes
+        except socket.timeout:
+            logger.debug("Received no INFO packet")
             return b""
-            #raise Exception("Cannot recv while in state %s" % self.state)
 
     def close(self):
         logger.debug(f"Closing socket while in state {self.state}")
-        self.state.close()
+        with self.state_lock, self.socket_recv_lock:
+            self.state.close()
 
     def settimeout(self, timeout):
         self.timeout = timeout

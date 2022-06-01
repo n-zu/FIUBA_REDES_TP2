@@ -5,10 +5,11 @@ from .socket.server.server import SAWSocketServer
 
 
 class SAWSocket:
-    def __init__(self):
+    def __init__(self, buggyness_factor=0.0):
         self.socket = None
         self.timeout = None
         self.block = True
+        self.buggyness_factor = buggyness_factor
 
     def settimeout(self, timeout):
         if self.socket is None:
@@ -25,7 +26,7 @@ class SAWSocket:
     def connect(self, addr):
         if self.socket is not None:
             raise Exception("Already connected")
-        self.socket = SAWSocketClient(ClientNotConnected(self))
+        self.socket = SAWSocketClient(ClientNotConnected(self), buggyness_factor=self.buggyness_factor)
         self.socket.connect(addr)
         self.socket.settimeout(self.timeout)
         self.socket.setblocking(self.block)
@@ -40,5 +41,5 @@ class SAWSocket:
 
     def __getattr__(self, attr):
         if self.socket is None:
-            raise Exception("Not connected")
+            raise Exception(f"Not connected while trying to access {attr}")
         return getattr(self.socket, attr)

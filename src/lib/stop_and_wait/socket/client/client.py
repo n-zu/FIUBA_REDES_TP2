@@ -23,14 +23,62 @@ DISCONNECTING = "DISCONNECTING"
 DISCONNECTED = "DISCONNECTED"
 
 
-class SAWSocketClient(SAWSocketInterface):
-    CONNACK_WAIT_TIMEOUT = 5
+class SafeSocket:
+    def __init__(self, a_socket):
+        self.socket = a_socket
+        self.lock_send = threading.Lock()
+        self.lock_recv = threading.Lock()
 
-    def __init__(self, initial_state):
+    def connect(self, addr):
+        with self.lock_send:
+            value = self.socket.connect(addr)
+        return value
+
+    def send(self, buffer):
+        with self.lock_send:
+            bytes_sent = self.socket.send(buffer)
+        return bytes_sent
+
+    def recv(self, size):
+        with self.lock_recv:
+            data = self.socket.recv(size)
+        return data
+
+    def close(self):
+        with self.lock_send:
+            value = self.socket.close()
+        return value
+
+    def settimeout(self, timeout):
+        with self.lock_send:
+            value = self.socket.settimeout(timeout)
+        return value
+
+    def setblocking(self, blocking):
+        with self.lock_send:
+            value = self.socket.setblocking(blocking)
+        return value
+
+    def bind(self, addr):
+        with self.lock_send:
+            value = self.socket.bind(addr)
+        return value
+
+    def send_all(self, buffer):
+        with self.lock_send:
+            value = self.socket.sendall(buffer)
+        return value
+
+
+class SAWSocketClient(SAWSocketInterface):
+    CONNACK_WAIT_TIMEOUT = 2
+
+    def __init__(self, initial_state, buggyness_factor=0):
         super().__init__(initial_state)
+        self.buggyness_factor = buggyness_factor
 
     def send_connect(self, addr):
-        self.socket = MuxDemuxStream()
+        self.socket = MuxDemuxStream(self.buggyness_factor)
         self.socket.connect(addr)
         self.socket.settimeout(self.CONNACK_WAIT_TIMEOUT)
         self.socket.setblocking(True)
@@ -39,52 +87,32 @@ class SAWSocketClient(SAWSocketInterface):
             try:
                 logger.debug("Sending connect packet")
                 self.socket.send_all(bytes(ConnectPacket()))
-                logger.debug("Waiting for connack packet")
 
                 PacketFactory.read_connack(self.socket)
                 break
             except socket.timeout:
-                logger.debug("Time out waiting for CONNACK, sending again")
+                logger.debug("Timeout waiting for CONNACK, sending again")
             except ProtocolViolation:
+                raise ProtocolViolation("Received packet distinct from CONNACK while in CONNECTING state")
                 logger.error("Protocol violation, closing connection")
                 self.state.set_disconnected()
                 self.stop()
                 return
-        logger.info("Received CONNACK, sending first INFO packet")
-        while True:
-            self.socket.send_all(
-                bytes(
-                    InfoPacket(
-                        number=self.next_packet_number_to_send, body=b""
-                    )
-                )
-            )
-            try:
-                PacketFactory.read_ack(self.socket)
-                self.next_packet_number_to_send += 1
-                self.state = ClientConnected(self)
-                self.socket.settimeout(None)
-                break
-            except socket.timeout:
-                logger.debug("Time out waiting for INFO, sending again")
-            except ProtocolViolation:
-                logger.error("Protocol violation, closing connection")
-                self.socket.close()
-                self.state = ClientDisconnected(self)
-                return
-
-        logger.debug("Connected")
+        self.set_state(ClientConnected(self))
+        self.info_bytestream = MTByteStream()
         self.packet_thread_handler = threading.Thread(
             target=self.packet_handler
         )
         self.packet_thread_handler.start()
-        self.info_bytestream = MTByteStream()
+        self.send(b"")
+        logger.success("Connected")
 
     def connect(self, addr):
         logger.info(f"Connecting to {addr[0]}:{addr[1]}")
         self.state.connect(addr)
 
     def handle_connect(self, packet):
+        raise Exception("Received CONNECT packet while in state {}".format(self.state))
         logger.error("Received connect packet from server")
 
 

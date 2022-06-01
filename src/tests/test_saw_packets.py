@@ -1,15 +1,17 @@
 from unittest.mock import Mock
-from lib.selective_repeat.packet import (
+from lib.stop_and_wait.packet import (
     Packet,
-    Ack,
-    Info,
-    Connack,
-    Connect,
+    AckPacket,
+    InfoPacket,
+    ConnackPacket,
+    ConnectPacket,
     CONNECT,
     CONNACK,
     INFO,
     ACK,
 )
+
+from lib.stop_and_wait.packet import PacketFactory
 
 
 def test_should_create_connect_packet():
@@ -17,7 +19,7 @@ def test_should_create_connect_packet():
     mock = Mock()
     mock.recv.return_value = bytes
     mock.recv_exact.return_value = bytes
-    assert Packet.read_from_stream(mock).type == CONNECT
+    assert PacketFactory.read_from_stream(mock).type == CONNECT
 
 
 def test_should_create_connack_packet():
@@ -25,7 +27,7 @@ def test_should_create_connack_packet():
     mock = Mock()
     mock.recv.side = bytes
     mock.recv_exact.return_value = bytes
-    assert Packet.read_from_stream(mock).type == CONNACK
+    assert PacketFactory.read_from_stream(mock).type == CONNACK
 
 
 def test_should_create_ack_packet():
@@ -34,10 +36,10 @@ def test_should_create_ack_packet():
         ACK,
         int(43).to_bytes(4, byteorder="big"),
     ]
-    packet = Packet.read_from_stream(mock)
+    packet = PacketFactory.read_from_stream(mock)
     assert packet.type == ACK
-    assert type(packet) == Ack
-    assert packet.number() == 43
+    assert type(packet) == AckPacket
+    assert packet.number == 43
 
 
 def test_should_create_info_packet():
@@ -49,38 +51,38 @@ def test_should_create_info_packet():
         int(4523).to_bytes(4, byteorder="big"),
         arr,
     ]
-    packet = Packet.read_from_stream(mock)
+    packet = PacketFactory.read_from_stream(mock)
     assert packet.type == INFO
-    assert type(packet) == Info
-    assert packet.number() == 4523
-    assert packet.body() == arr
+    assert type(packet) == InfoPacket
+    assert packet.number == 4523
+    assert packet.body == arr
 
 
 def test_create_info_packet():
-    packet = Info(366, bytes(b"hello :)"))
+    packet = InfoPacket(366, bytes(b"hello :)"))
     assert packet.type == INFO
-    assert packet.number() == 366
-    assert packet.body() == b"hello :)"
+    assert packet.number == 366
+    assert packet.body == b"hello :)"
 
 
 def test_create_empty_info_packet():
-    packet = Info(366, None)
+    packet = InfoPacket(366, None)
     assert packet.type == INFO
-    assert packet.number() == 366
-    assert packet.body() is None
+    assert packet.number == 366
+    assert packet.body == b""
 
 
 def test_create_ack_packet():
-    packet = Ack(111)
+    packet = AckPacket(111)
     assert packet.type == ACK
-    assert packet.number() == 111
+    assert packet.number == 111
 
 
 def test_create_connect_packet():
-    packet = Connect()
+    packet = ConnectPacket()
     assert packet.type == CONNECT
 
 
 def test_create_connack_packet():
-    packet = Connack()
+    packet = ConnackPacket()
     assert packet.type == CONNACK

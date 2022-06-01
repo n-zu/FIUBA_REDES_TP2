@@ -1,3 +1,4 @@
+import threading
 from abc import ABC, abstractmethod
 from loguru import logger
 
@@ -5,6 +6,9 @@ from loguru import logger
 class SAWState(ABC):
     def __init__(self, saw_socket):
         self.saw_socket = saw_socket
+
+    def __repr__(self):
+        return self.__class__.__name__
 
     @abstractmethod
     def handle_connect(self, packet):

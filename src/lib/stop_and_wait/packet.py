@@ -3,21 +3,25 @@ import math
 import socket
 from abc import ABC, abstractmethod
 
-from lib.stop_and_wait.exceptions import ProtocolViolation
+from .exceptions import ProtocolViolation
 
 logger = logging.getLogger(__name__)
 
 from loguru import logger
 
-CONNECT = 0
-CONNACK = 1
-INFO = 2
-ACK = 3
-FIN = 4
-FINACK = 5
+CONNECT = b"0"
+CONNACK = b"1"
+INFO = b"2"
+ACK = b"3"
+FIN = b"4"
+FINACK = b"5"
 
 
 class Packet(ABC):
+
+    def __repr__(self):
+        return self.__class__.__name__
+
     @staticmethod
     @abstractmethod
     def read_from_stream(stream):
@@ -32,7 +36,7 @@ class Packet(ABC):
 
 
 class ConnectPacket(Packet):
-    _type = 0
+    type = CONNECT
 
     @classmethod
     def read_from_stream(cls, stream):
@@ -40,7 +44,7 @@ class ConnectPacket(Packet):
         return packet
 
     def __bytes__(self):
-        packet_bytes = self._type.to_bytes(1, byteorder="big")
+        packet_bytes = self.type
         return packet_bytes
 
     def be_handled_by(self, handler):
@@ -48,14 +52,14 @@ class ConnectPacket(Packet):
 
 
 class ConnackPacket(Packet):
-    _type = 1
+    type = CONNACK
 
     @classmethod
     def read_from_stream(cls, stream):
         return cls()
 
     def __bytes__(self):
-        packet_bytes = self._type.to_bytes(1, byteorder="big")
+        packet_bytes = self.type
         return packet_bytes
 
     def be_handled_by(self, handler):
@@ -63,16 +67,12 @@ class ConnackPacket(Packet):
 
 
 class InfoPacket(Packet):
-    _type = 2
+    type = INFO
 
     def __init__(self, number=0, body=b""):
         self.number = number
-        self.length = len(body)
-        self.body = body
-
-    @property
-    def type(self):
-        return self._type
+        self.body = body if body else b""
+        self.length = len(self.body)
 
     @classmethod
     def read_from_stream(cls, stream):
@@ -86,7 +86,7 @@ class InfoPacket(Packet):
         return packet
 
     def __bytes__(self):
-        packet_bytes = self._type.to_bytes(1, byteorder="big")
+        packet_bytes = self.type
         packet_bytes += self.length.to_bytes(4, byteorder="big")
         packet_bytes += self.number.to_bytes(4, byteorder="big")
         packet_bytes += self.body
@@ -94,6 +94,9 @@ class InfoPacket(Packet):
 
     @staticmethod
     def split(mtu, buffer, initial_number=0):
+        if len(buffer) <= mtu:
+            return [InfoPacket(initial_number, buffer)]
+
         number_of_packets = math.ceil(len(buffer) / mtu)
         packets = []
         for i in range(number_of_packets):
@@ -106,14 +109,10 @@ class InfoPacket(Packet):
 
 
 class AckPacket(Packet):
-    _type = 3
+    type = ACK
 
     def __init__(self, number):
         self.number = number
-
-    @property
-    def type(self):
-        return self._type
 
     @classmethod
     def read_from_stream(cls, stream):
@@ -121,7 +120,7 @@ class AckPacket(Packet):
         return cls(number)
 
     def __bytes__(self):
-        packet_bytes = self._type.to_bytes(1, byteorder="big")
+        packet_bytes = self.type
         packet_bytes += self.number.to_bytes(4, byteorder="big")
         return packet_bytes
 
@@ -130,18 +129,14 @@ class AckPacket(Packet):
 
 
 class FinPacket(Packet):
-    _type = 4
-
-    @property
-    def type(self):
-        return self._type
+    type = FIN
 
     @classmethod
     def read_from_stream(cls, stream):
         return cls()
 
     def __bytes__(self):
-        packet_bytes = self._type.to_bytes(1, byteorder="big")
+        packet_bytes = self.type
         return packet_bytes
 
     def be_handled_by(self, handler):
@@ -149,37 +144,24 @@ class FinPacket(Packet):
 
 
 class FinackPacket(Packet):
-    _type = 5
-
-    @property
-    def type(self):
-        return self._type
+    type = FINACK
 
     @classmethod
     def read_from_stream(cls, stream):
         return cls()
 
     def __bytes__(self):
-        packet_bytes = self._type.to_bytes(1, byteorder="big")
+        packet_bytes = self.type
         return packet_bytes
 
     def be_handled_by(self, handler):
         handler.handle_finack(self)
 
 
-def read_packet_type(stream):
-    logger.debug("Reading packet type")
-    packet_byte_raw = stream.recv_exact(1)
-    packet_byte = int.from_bytes(packet_byte_raw, byteorder="big")
-    logger.debug("Packet type read: {}".format(packet_byte))
-
-    return int.from_bytes(packet_byte_raw, byteorder="big")
-
-
 class PacketFactory:
     @classmethod
     def read_from_stream(cls, stream):
-        packet_type = read_packet_type(stream)
+        packet_type = stream.recv_exact(1)
 
         if packet_type == CONNECT:
             return ConnectPacket.read_from_stream(stream)
@@ -197,14 +179,14 @@ class PacketFactory:
 
     @classmethod
     def read_connack(cls, stream):
-        packet_type = read_packet_type(stream)
-        if ConnackPacket._type == packet_type:
+        packet_type = stream.recv_exact(1)
+        if ConnackPacket.type == packet_type:
             return ConnackPacket.read_from_stream(stream)
-        raise ValueError(f"Expected Connack Packet (type {ConnackPacket._type}), got type {packet_type}")
+        raise ValueError(f"Expected Connack Packet (type {ConnackPacket.type}), got type {packet_type}")
 
     @classmethod
     def read_ack(cls, stream):
-        packet_type = read_packet_type(stream)
-        if AckPacket._type == packet_type:
+        packet_type = stream.recv_exact(1)
+        if AckPacket.type == packet_type:
             return AckPacket.read_from_stream(stream)
-        raise ValueError(f"Expected Ack Packet (type {AckPacket._type}), got type {packet_type}")
+        raise ValueError(f"Expected Ack Packet (type {AckPacket.type}), got type {packet_type}")

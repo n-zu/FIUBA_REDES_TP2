@@ -13,8 +13,8 @@ class SAWSocketServer(SAWSocketInterface):
         self.packet_thread_handler = threading.Thread(
             target=self.packet_handler
         )
-        self.packet_thread_handler.start()
         self.info_bytestream = MTByteStream()
+        self.packet_thread_handler.start()
         # Wait for CONNECT
         self.connect_event.wait()
 

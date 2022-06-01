@@ -1,3 +1,5 @@
+import time
+
 from lib.rdt_listener.rdt_listener import RDTListener, STOP_AND_WAIT
 import threading
 from loguru import logger
@@ -72,7 +74,7 @@ def __client(port, data):
 
 def test_should_receive_data_big_buggy():
     port = 57121 + 2
-    data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
+    data = b"".join([x.to_bytes(2, byteorder="little") for x in range(400)])
     listener = RDTListener("stop_and_wait", 0.20)
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
@@ -87,8 +89,8 @@ def test_should_receive_data_big_buggy():
     socket.close()
     thread.join()
 
+    time.sleep(15)
     listener.close()
-
     assert output == data
 
 
