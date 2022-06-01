@@ -1,5 +1,6 @@
-from lib.utils import MTByteStream
+from ....utils import MTByteStream
 from ..interface import *
+from ...packet import ConnackPacket
 
 
 class SAWSocketServer(SAWSocketInterface):
@@ -8,6 +9,7 @@ class SAWSocketServer(SAWSocketInterface):
         self.connect_event = threading.Event()
 
     def from_listener(self, mux_demux_socket):
+        logger.critical("from_listener() executed on SAWSocketServer")
         self.socket = mux_demux_socket
 
         self.packet_thread_handler = threading.Thread(

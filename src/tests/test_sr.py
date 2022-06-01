@@ -2,10 +2,10 @@ import pytest
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.rdt_listener.rdt_listener import RDTListener
 from threading import Thread
-
+from lib.stop_and_wait.saw_socket import SAWSocket
 
 def __client(port, data):
-    client = SRSocket()
+    client = SAWSocket()
     client.connect(("127.0.0.1", port))
     client.send(data)
     client.close()
@@ -53,8 +53,13 @@ def test_should_receive_data_big():
 
 def test_should_receive_data_big_buggy():
     port = 57121 + 2
+<<<<<<< Updated upstream
     data = b"".join([x.to_bytes(2, byteorder="little") for x in range(40000)])
     listener = RDTListener("selective_repeat", 0.25)
+=======
+    data = b"".join([x.to_bytes(2, byteorder="little") for x in range(400)])
+    listener = RDTListener("stop_and_wait", 0.8)
+>>>>>>> Stashed changes
     listener.bind(("127.0.0.1", port))
     listener.listen(1)
 

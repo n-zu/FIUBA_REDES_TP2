@@ -1,13 +1,7 @@
-import logging
-import math
+from math import ceil
 import socket
 from abc import ABC, abstractmethod
-
-from .exceptions import ProtocolViolation
-
-logger = logging.getLogger(__name__)
-
-from loguru import logger
+from .exceptions import ProtocolError
 
 CONNECT = b"0"
 CONNACK = b"1"
@@ -18,7 +12,6 @@ FINACK = b"5"
 
 
 class Packet(ABC):
-
     def __repr__(self):
         return self.__class__.__name__
 
@@ -67,6 +60,7 @@ class ConnackPacket(Packet):
 
 
 class InfoPacket(Packet):
+    MAX_SPLIT_NUMBER = 2 ** 16
     type = INFO
 
     def __init__(self, number=0, body=b""):
@@ -82,7 +76,7 @@ class InfoPacket(Packet):
             packet.number = int.from_bytes(stream.recv_exact(4), byteorder="big")
             packet.body = stream.recv_exact(packet.length)
         except socket.timeout:
-            raise ProtocolViolation("Timeout while reading INFO packet")
+            raise ProtocolError("Timeout while reading INFO packet")
         return packet
 
     def __bytes__(self):
@@ -92,15 +86,15 @@ class InfoPacket(Packet):
         packet_bytes += self.body
         return packet_bytes
 
-    @staticmethod
-    def split(mtu, buffer, initial_number=0):
+    @classmethod
+    def split(cls, mtu, buffer, initial_number=0):
         if len(buffer) <= mtu:
             return [InfoPacket(initial_number, buffer)]
 
-        number_of_packets = math.ceil(len(buffer) / mtu)
+        number_of_packets = ceil(len(buffer) / mtu)
         packets = []
         for i in range(number_of_packets):
-            packet = InfoPacket(i + initial_number, buffer[i * mtu:(i + 1) * mtu])
+            packet = InfoPacket((i + initial_number) % cls().MAX_SPLIT_NUMBER, buffer[i * mtu:(i + 1) * mtu])
             packets.append(packet)
         return packets
 

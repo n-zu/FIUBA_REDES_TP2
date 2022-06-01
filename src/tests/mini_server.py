@@ -73,11 +73,8 @@ def print_threads():
 
 
 def main():
-    server_thread = threading.Thread(target=start_server)
-    server_thread.start()
-
-    threading.Timer(60, print_threads).start()
-    server_thread.join()
+    start_server()
+    print_threads()
 
 
 if __name__ == "__main__":

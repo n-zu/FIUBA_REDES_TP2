@@ -1,6 +1,4 @@
-import threading
 from abc import ABC, abstractmethod
-from loguru import logger
 
 
 class SAWState(ABC):

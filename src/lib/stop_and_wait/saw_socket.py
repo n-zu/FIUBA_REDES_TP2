@@ -1,7 +1,7 @@
 from .socket.client.client import SAWSocketClient
-from .socket.client.states import ClientNotConnected
-from .socket.server.states import ServerNotConnected
 from .socket.server.server import SAWSocketServer
+from .socket.client.states.not_connected import ClientNotConnected
+from .socket.server.states.not_connected import ServerNotConnected
 
 
 class SAWSocket:

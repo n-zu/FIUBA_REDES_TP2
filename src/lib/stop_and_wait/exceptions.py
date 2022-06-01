@@ -1,4 +1,4 @@
-class ProtocolViolation(Exception):
+class ProtocolError(Exception):
     def __init__(self, message='Protocol violation'):
         # Call the base class constructor with the parameters it needs
-        super(ProtocolViolation, self).__init__(message)
+        super(ProtocolError, self).__init__(message)
