@@ -23,17 +23,20 @@ Para ejecutar los tests, ejecutar el comando `pytest`
 > Me anda medio mal python, esto me dio resultado:
 
 Run test file: In `src`
+
 ```
 python3 -m tests.test_sr
 ```
 
 Run test: In `src/tests`
+
 ```
 python3 -m pytest test_sr.py
 
 ```
 
 Run test: In `src/tests` ( Also SLOW TESTS )
+
 ```
 python3 -m pytest test_sr.py --runslow
 
@@ -51,13 +54,15 @@ python3 src/tcp/start_server.py -H localhost -p 8080 -s server
 ```
 
 Upload file:
+
 ```
 python3 src/tcp/upload.py -H localhost -p 8080 -s . -n README.md
 ```
 
 Download file:
+
 ```
-python3 src/tcp/download.py -H localhost -p 8080 -d client -n README.md 
+python3 src/tcp/download.py -H localhost -p 8080 -d client -n README.md
 ```
 
 ###### Custom RDT FTP
@@ -67,9 +72,11 @@ Create `server` and `client` folders
 Create `hello.txt` file
 
 **Note:** replace `localhost` with your localhost IP address, you should see an error message like:
+
 ```
 Exception: Received packet from invalid address ('127.0.0.1', 8080) - Expected ('localhost', 8080)
 ```
+
 you can take your IP from there
 
 Start server:
@@ -79,13 +86,29 @@ python3 -m ftp.start_server -H localhost -p 8080 -s server
 ```
 
 Upload file:
+
 ```
 python3 -m ftp.upload -H localhost -p 8080 -s . -n hello.txt
 ```
 
 Download file:
+
 ```
 python3 -m ftp.download -H 127.0.0.1 -p 8080 -d client -n hello.txt
+```
+
+###### Docker
+
+Build Container
+
+```
+docker build -t isd_tp2 .
+```
+
+Run Container
+
+```
+docker run -it isd_tp2
 ```
 
 ## Draft

@@ -3,9 +3,14 @@ FROM python:3.9
 WORKDIR /root
 
 COPY requirements.txt .
-COPY src ./src
+
+RUN ls
+
+COPY src src
+
+RUN ls
 
 RUN pip install -r requirements.txt
 
-CMD ["bin/bash"]
+CMD ["sh"]
 
