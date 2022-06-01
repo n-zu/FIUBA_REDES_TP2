@@ -2,6 +2,7 @@ from args_client import args_client
 from loguru import logger
 import socket
 import os
+import sys
 
 ENDIANESS = "little"
 BYTES_READ = 1024
@@ -12,7 +13,19 @@ FILE_NOT_FOUND_ERROR = 1
 
 
 def upload(endianess, bytes_read):
+    logger.remove()
+    logger.add(sys.stdout, level='ERROR')
+
     args = args_client(True)
+
+    logger.remove()
+    if args.quiet:
+        logger.add(sys.stdout, level='ERROR')
+    elif args.verbose:
+        logger.add(sys.stdout, level='DEBUG')
+        logger.debug("in verbose mode")
+    else:
+        logger.add(sys.stdout, level='INFO')
 
     logger.debug("arguments read")
 
@@ -20,8 +33,6 @@ def upload(endianess, bytes_read):
     PORT = args.port
     FILEPATH = args.src
     FILENAME = args.name
-
-    # TODO: log levels
 
     TYPE = (0).to_bytes(1, byteorder=endianess)
 

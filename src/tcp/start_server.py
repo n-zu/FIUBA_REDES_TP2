@@ -3,6 +3,7 @@ import threading
 import os
 from args_server import args_server
 import socket
+import sys
 
 MIN_SIZE = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -93,6 +94,15 @@ def check_type(socket, path):
 
 def start_server():
     args = args_server()
+
+    logger.remove()
+    if args.quiet:
+        logger.add(sys.stdout, level='ERROR')
+    elif args.verbose:
+        logger.add(sys.stdout, level='DEBUG')
+        logger.debug("in verbose mode")
+    else:
+        logger.add(sys.stdout, level='INFO')
 
     logger.debug("arguments read")
 
