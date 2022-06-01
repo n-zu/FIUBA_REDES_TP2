@@ -99,16 +99,24 @@ python3 -m ftp.download -H 127.0.0.1 -p 8080 -d client -n hello.txt
 
 ###### Docker
 
+> ctrl D to exit
+
+```
+
 Build Container
 
 ```
+
 docker build -t isd_tp2 .
+
 ```
 
 Run Container
 
 ```
+
 docker run -it isd_tp2
+
 ```
 
 ## Draft
@@ -128,45 +136,51 @@ docker run -it isd_tp2
 #### Client
 
 ```
+
 > python upload - file -h
-usage : file - upload [ - h ] [ - v | -q ] [ - H ADDR ] [ - p PORT ] [ -s FILEPATH ] [ - n FILENAME ]
-< command description >
-optional arguments :
--h , -- help show this help message and exit
--v , -- verbose increase output verbosity
--q , -- quiet decrease output verbosity
--H , -- host server IP address
--p , -- port server port
--s , -- src source file p
+> usage : file - upload [ - h ] [ - v | -q ] [ - H ADDR ] [ - p PORT ] [ -s FILEPATH ] [ - n FILENAME ]
+> < command description >
+> optional arguments :
+> -h , -- help show this help message and exit
+> -v , -- verbose increase output verbosity
+> -q , -- quiet decrease output verbosity
+> -H , -- host server IP address
+> -p , -- port server port
+> -s , -- src source file p
+
 ```
 
 ```
+
 > python download - file -h
-usage : download - file [ - h ] [ -v | -q ] [ - H ADDR ] [ - p PORT ] [ - d FILEPATH ] [ - n FILENAME ]
-< command description >
-optional arguments :
--h , -- help show this help message and exit
--v , -- verbose increase output verbosity
--q , -- quiet decrease output verbosity
--H , -- host server IP address
--p , -- port server port
--d , -- dst destination file path
--n , -- name file name
+> usage : download - file [ - h ] [ -v | -q ] [ - H ADDR ] [ - p PORT ] [ - d FILEPATH ] [ - n FILENAME ]
+> < command description >
+> optional arguments :
+> -h , -- help show this help message and exit
+> -v , -- verbose increase output verbosity
+> -q , -- quiet decrease output verbosity
+> -H , -- host server IP address
+> -p , -- port server port
+> -d , -- dst destination file path
+> -n , -- name file name
+
 ```
 
 #### Server
 
 ```
+
 > python start - server -h
-usage : start - server [ - h ] [ - v | -q ] [ - H ADDR ] [ - p PORT ] [- s DIRPATH ]
-< command description >
-optional arguments :
--h , -- help show this help message and exit
--v , -- verbose increase output verbosity
--q , -- quiet decrease output verbosity
--H , -- host service IP address
--p , -- port service port
--s , -- storage storage dir path
+> usage : start - server [ - h ] [ - v | -q ] [ - H ADDR ] [ - p PORT ] [- s DIRPATH ]
+> < command description >
+> optional arguments :
+> -h , -- help show this help message and exit
+> -v , -- verbose increase output verbosity
+> -q , -- quiet decrease output verbosity
+> -H , -- host service IP address
+> -p , -- port service port
+> -s , -- storage storage dir path
+
 ```
 
 ### FTP : File Transfer Protocol
@@ -187,3 +201,4 @@ optional arguments :
 #### Client
 
 #### Server
+```
