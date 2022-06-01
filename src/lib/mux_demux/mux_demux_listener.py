@@ -115,10 +115,15 @@ class MuxDemuxListener:
         self.send_thread_handle.start()
 
     def accept(self):
-        logger.info(f"Accepting connection (timeout={self.queue_timeout}, block={self.queue_block})")
+        logger.info(
+            f"Accepting connection (timeout={self.queue_timeout},"
+            f" block={self.queue_block})"
+        )
         while True:
             try:
-                addr = self.waiting_connections.get(timeout=self.queue_timeout, block=self.queue_block)
+                addr = self.waiting_connections.get(
+                    timeout=self.queue_timeout, block=self.queue_block
+                )
                 logger.debug("Accepted connection from {}".format(addr))
                 socket_sender = MTSocketSender(addr, self.queue_to_send)
 
@@ -136,7 +141,10 @@ class MuxDemuxListener:
                 (data, addr) = self.queue_to_send.get(timeout=1)
                 # Me indica que el socket se desconecto
                 if data is None:
-                    logger.debug(f"Removing addr {addr} from bytestreams (now {len(self.bytestreams)} remaining)")
+                    logger.debug(
+                        f"Removing addr {addr} from bytestreams (now"
+                        f" {len(self.bytestreams)} remaining)"
+                    )
                     del self.bytestreams[addr]
                 else:
                     bytes_sent = 0
@@ -184,7 +192,9 @@ class MuxDemuxListener:
 
     def close(self):
         while len(self.bytestreams) > 0:
-            logger.warning("bytestreams is not empty")
+            logger.warning(
+                f"bytestreams is not empty: {self.bytestreams.keys()}"
+            )
             time.sleep(0.1)
         self.stop_event.set()
         self.recv_thread_handle.join()

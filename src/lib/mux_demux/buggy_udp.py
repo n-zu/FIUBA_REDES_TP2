@@ -15,7 +15,7 @@ class BuggyUDPSocket:
         if random.random() > self.buggyness_factor:
             return self.socket.sendto(data, addr)
         else:
-            logger.warning(f"Lost packet {data}")
+            logger.warning(f"Lost packet. First 10 bytes: {data[:10]}")
         return len(data)
 
     def recvfrom(self, size):
@@ -32,4 +32,3 @@ class BuggyUDPSocket:
 
     def bind(self, addr):
         return self.socket.bind(addr)
-

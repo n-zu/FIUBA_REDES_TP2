@@ -1,34 +1,50 @@
 from .constants import (
+    CLOSED,
+    FORCED_CLOSING,
     INITIAL_PACKET_NUMBER,
     NOT_CONNECTED,
+    PEER_CLOSED,
     WINDOW_SIZE,
     ACK_NUMBERS,
 )
-import queue
 from loguru import logger
 import threading
+import queue
 
 
-# Cuenta los paquetes on-flight y bloquea el get() hasta que haya
+# Maneja la window actual y bloquea el get() hasta que haya
 # espacio en la window
 class AckNumberProvider:
-    def __init__(self, timeout=None, window_size=WINDOW_SIZE):
-        self.next = INITIAL_PACKET_NUMBER + WINDOW_SIZE
-        self.channel = queue.SimpleQueue()
+    def __init__(self, window_size=WINDOW_SIZE):
+        self.oldest_not_acked = INITIAL_PACKET_NUMBER
+        self.acked = set()
+        self.lock = threading.Lock()
+        self.available = queue.SimpleQueue()
+        self.window_size = window_size
         for i in range(
-            INITIAL_PACKET_NUMBER, INITIAL_PACKET_NUMBER + WINDOW_SIZE
+            INITIAL_PACKET_NUMBER, INITIAL_PACKET_NUMBER + window_size
         ):
-            self.channel.put(i % ACK_NUMBERS)
-        self.timeout = timeout
+            self.available.put(i)
 
-    def get(self):
-        n = self.channel.get(timeout=self.timeout)
+    def get(self, timeout=None):
+        n = self.available.get(timeout=timeout)
         return n
 
-    def push(self):
-        self.channel.put(self.next)
-        self.next += 1
-        self.next %= ACK_NUMBERS
+    def push(self, number):
+        with self.lock:
+            if self.oldest_not_acked == number:
+                self.acked.add(number)
+                self.__update_oldest()
+            elif gt_packets(number, self.oldest_not_acked):
+                self.acked.add(number)
+
+    def __update_oldest(self):
+        while self.oldest_not_acked in self.acked:
+            self.available.put(
+                (self.oldest_not_acked + self.window_size) % ACK_NUMBERS
+            )
+            self.acked.remove(self.oldest_not_acked)
+            self.oldest_not_acked = (self.oldest_not_acked + 1) % ACK_NUMBERS
 
 
 # Función de comparación de paquetes (greater than)
@@ -76,6 +92,7 @@ class AckRegister:
     def __init__(self):
         self.lock = threading.Lock()
         self.unacknowledged = set()
+        self.first_acked = None
         self.stopped = threading.Event()
 
     def add_pending(self, packet):
@@ -88,7 +105,12 @@ class AckRegister:
         with self.lock:
             self.unacknowledged.add(packet.number())
 
+        logger.debug(
+            f"Added pending acknowledgement for packet {packet.number()}"
+        )
+
     def acknowledge(self, packet):
+        self.__set_first(packet.number())
         with self.lock:
             self.unacknowledged.discard(packet.number())
 
@@ -109,9 +131,21 @@ class AckRegister:
                 logger.warning(
                     "Clearing unacknowledged packets on AckRegister, but ACKs"
                     " not received for numbers "
-                    + ",".map(lambda x: str(x.number()), self.unacknowledged)
+                    + str(self.unacknowledged)
                 )
             self.unacknowledged.clear()
+
+    def __set_first(self, number):
+        if self.first_acked and number == INITIAL_PACKET_NUMBER:
+            self.first_acked.set()
+            logger.debug("First INFO packet acked")
+
+    def enable_wait_first(self):
+        self.first_acked = threading.Event()
+
+    def wait_first_acked(self, timeout=None):
+        if self.first_acked:
+            self.first_acked.wait(timeout=timeout)
 
 
 class SafeSendSocket:
@@ -135,8 +169,13 @@ class SocketStatus:
         self.lock = threading.Lock()
 
     def set_status(self, status):
-        self.status = status
+        with self.lock:
+            self.status = status
 
     def get(self):
         with self.lock:
             return self.status
+
+    def is_closed(self):
+        with self.lock:
+            return self.status in (CLOSED, FORCED_CLOSING, PEER_CLOSED)

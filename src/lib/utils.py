@@ -1,23 +1,29 @@
 import queue
 import socket
+import threading
 
 
 class MTByteStream:
     def __init__(self):
         self.buffer = b""
         self.stream = queue.SimpleQueue()
+        self.extra = b""
+        self.lock = threading.Lock()
 
     def get_bytes(self, buff_size, timeout=None, block=True):
-        data = b""
-        try:
-            while len(data) < buff_size:
-                data += self.stream.get(block=block, timeout=timeout)
-            return data
-        except queue.Empty:
-            if len(data) == 0:
-                raise socket.timeout
-            return data
+        with self.lock:
+            data = self.extra[:buff_size]
+            self.extra = self.extra[buff_size:]
+            try:
+                while len(data) < buff_size:
+                    data += self.stream.get(block=block, timeout=timeout)
+
+                self.extra += data[buff_size:]
+                return data[:buff_size]
+            except queue.Empty as e:
+                if len(data) == 0:
+                    raise socket.timeout from e
+                return data
 
     def put_bytes(self, data):
-        for byte_to_put in data:
-            self.stream.put(byte_to_put.to_bytes(1, "big"))
+        self.stream.put(data)

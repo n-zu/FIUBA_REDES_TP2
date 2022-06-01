@@ -1,3 +1,4 @@
+from queue import Empty
 from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 from lib.selective_repeat.packet import (
     Packet,
@@ -24,20 +25,26 @@ from .util import (
     SocketStatus,
 )
 from .constants import (
+    CLOSED,
+    CLOSED_CHECK_INTERVAL,
     CONNECT_WAIT_TIMEOUT,
     CONNACK_WAIT_TIMEOUT,
     CONNECT_RETRIES,
     ACK_TIMEOUT,
+    ACK_RETRIES,
     FIN_RETRIES,
+    FIN_WAIT_TIMEOUT,
     FINACK_WAIT_TIMEOUT,
-    CLOSING,
     MAX_SIZE,
+    PEER_CLOSED,
     STOP_CHECK_INTERVAL,
     NOT_CONNECTED,
     CONNECTED,
+    FORCED_CLOSING,
     INITIAL_PACKET_NUMBER,
     WINDOW_SIZE,
 )
+import time
 
 
 class SRSocket:
@@ -57,17 +64,23 @@ class SRSocket:
             self.send_socket.send_all, self.upstream_channel
         )
 
+    def set_window_size(self, window_size):
+        self.number_provider.set_window_size(window_size)
+
     # Conectar tipo cliente
-    def connect(self, addr):
+    def connect(self, addr, buggyness_factor=0):
+        if self.status.get() != NOT_CONNECTED:
+            raise Exception("Socket has already been connected")
+
         logger.debug(f"Connecting to {addr[0]}:{addr[1]}")
-        self.socket = MuxDemuxStream()
+        self.socket = MuxDemuxStream(buggyness_factor=buggyness_factor)
         self.socket.connect(addr)
         self.send_socket.set_socket(self.socket)
+        self.ack_register.enable_wait_first()
         # Esperar CONNACK
         self.__wait_connack(Connect())
         # Envío un INFO para confirmar recepción de CONNACK
         self.__send_info(Info(self.number_provider.get()))
-
         # Yo ya me puedo considerar conectado
         self.status.set_status(CONNECTED)
         logger.debug("Connected")
@@ -75,6 +88,9 @@ class SRSocket:
 
     # Conectar tipo servidor
     def from_listener(self, mux_demux_socket):
+        if self.status.get() != NOT_CONNECTED:
+            raise Exception("Socket has already been connected")
+
         logger.debug("Creating new SRSocket from listener")
         self.socket = mux_demux_socket
         self.send_socket.set_socket(self.socket)
@@ -91,9 +107,8 @@ class SRSocket:
         self.socket.settimeout(CONNECT_WAIT_TIMEOUT)
         packet = Packet.read_from_stream(self.socket)
         if packet.type != CONNECT:
-            raise Exception(
-                "Received unexpected packet type when initializing connection"
-            )
+            logger.error(f"Received  {packet}, Expecting CONNECT")
+            raise Exception(f"Received  {packet}, Expecting CONNECT")
         return packet
 
     def __wait_connack(self, connect):
@@ -104,10 +119,8 @@ class SRSocket:
                 packet = Packet.read_from_stream(self.socket)
                 if packet.type == CONNACK:
                     return
-                raise Exception(
-                    "Received unexpected packet type"
-                    f" ({packet}) while waiting for CONNACK"
-                )
+                logger.error(f"Received  {packet}, Expecting CONNACK")
+                raise Exception(f"Received  {packet}, Expecting CONNACK")
             except (TimeoutError, socket.timeout):
                 self.send_socket.send_all(connect.encode())
                 logger.warning(
@@ -147,9 +160,10 @@ class SRSocket:
         logger.debug("Packet handler started")
         self.socket.settimeout(STOP_CHECK_INTERVAL)
 
-        while (
-            self.status.get() == CONNECTED
-        ) or self.ack_register.have_unacknowledged():
+        while not self.status.is_closed() or (
+            self.ack_register.have_unacknowledged()
+            and self.status.get() != FORCED_CLOSING
+        ):
             try:
                 packet = Packet.read_from_stream(self.socket)
             except (TimeoutError, socket.timeout):
@@ -167,19 +181,21 @@ class SRSocket:
             elif packet.type == INFO:
                 self.acker.received(packet)
             elif packet.type == ACK:
-                self.number_provider.push()
+                self.number_provider.push(packet.number())
                 self.ack_register.acknowledge(packet)
             elif packet.type == FIN:
-                self.status.set_status(CLOSING)
+                self.status.set_status(PEER_CLOSED)
                 self.ack_register.stop()
                 self.__wait_finack_arrived(packet.ack())
             elif packet.type == FINACK:
                 logger.warning("Received FINACK packet but a FIN wasn't sent")
             else:
-                logger.error("Received unknown packet type")
+                logger.warning("Received unknown packet type")
+
+        logger.debug("Packet handler stopping")
 
     def __wait_finack_arrived(self, finack):
-        self.socket.settimeout(FINACK_WAIT_TIMEOUT)
+        self.socket.settimeout(FIN_WAIT_TIMEOUT)
         self.send_socket.send_all(finack.encode())
         for i in range(FIN_RETRIES):
             try:
@@ -190,6 +206,7 @@ class SRSocket:
                         f" it (attempt {i})"
                     )
                     self.send_socket.send_all(finack.encode())
+                    continue
                 if packet.type == FINACK:
                     # Acá hay 3 opciones:
                     # 1) El otro tipo mandó un finack de la nada nada que ver,
@@ -200,25 +217,49 @@ class SRSocket:
                     # llega me saca de este timeout largo, si no llega salgo
                     # igual pero más lento
                     return
-                raise Exception(
-                    "Received unexpected packet type"
-                    f" ({packet}) while checking FINACK arrived"
+                logger.warning(
+                    "Received unexpected packet type ({packet})"
+                    f" while checking FINACK arrived, retrying (attempt {i})"
                 )
             except (TimeoutError, socket.timeout):
+                logger.debug(
+                    f"{FIN_WAIT_TIMEOUT} seconds passed since FINACK was"
+                    " sent and didn't receive another FIN or FINACK, assuming"
+                    " it arrived successfully"
+                )
                 return
-        logger.error(
+        logger.warning(
             "Could not confirm connection was closed for the other end"
         )
 
+    def __force_close(self):
+        if self.status.get() == FORCED_CLOSING:
+            logger.trace("FORCED_CLOSING already in progress")
+            return
+
+        self.status.set_status(FORCED_CLOSING)
+        self.send_socket.send_all(Packet(FIN).encode())
+        logger.error("Fatal error, ending connection abruptly")
+        self.packet_thread_handler.join()
+        self.socket.close()
+
     def close(self):
-        if self.status.get() == CLOSING:
+        self.ack_register.wait_first_acked()
+        if self.status.get() == CLOSED:
+            return
+
+        if self.status.get() == PEER_CLOSED:
             self.packet_thread_handler.join()
         else:
-            self.status.set_status(CLOSING)
+            self.status.set_status(CLOSED)
             self.packet_thread_handler.join()
-            self.__wait_finack(Fin())
+            # Peer may have closed before I could
+            # join this thread
+            if self.status.get() != PEER_CLOSED:
+                self.__wait_finack(Fin())
 
         self.socket.close()
+        self.status.set_status(CLOSED)
 
     def __wait_finack(self, fin):
         self.socket.settimeout(FINACK_WAIT_TIMEOUT)
@@ -228,6 +269,8 @@ class SRSocket:
                 packet = Packet.read_from_stream(self.socket)
                 if packet.type == FINACK:
                     logger.info("Received FINACK")
+                    # Sending finack to hopefully stop the receiver's
+                    # timer sooner than it would normally do
                     self.send_socket.send_all(Finack().encode())
                     return
                 if packet.type == FIN:
@@ -243,7 +286,7 @@ class SRSocket:
                 )
                 continue
 
-        logger.error(
+        logger.warning(
             "Could not confirm connection was closed for the other end"
         )
 
@@ -251,14 +294,27 @@ class SRSocket:
         if self.ack_register.check_acknowledged(packet):
             return
 
+        if self.status.get() == FORCED_CLOSING:
+            return
+
+        if send_attempt > ACK_RETRIES:
+            return self.__force_close()
+
         logger.warning(
             f"Packet with number {packet.number()} not acknowledged on time,"
             f" resending it (attempt {send_attempt})"
         )
+        logger.debug(f"Resend Attemp {send_attempt}")
         self.__send_info(packet, send_attempt + 1)
 
     def __send_info(self, packet, attempts=0):
+
+        if self.status.get() == FORCED_CLOSING:
+            logger.trace("FORCED_CLOSING in progress")
+            return
+
         self.send_socket.send_all(packet.encode())
+        self.ack_register.add_pending(packet)
         timer = threading.Timer(
             ACK_TIMEOUT,
             self.__check_ack,
@@ -276,31 +332,58 @@ class SRSocket:
         packets = Info.from_buffer(buffer, self.max_size)
         logger.debug("Fragmented buffer into %d packets" % len(packets))
 
-        for packet in packets:
-            packet.set_number(self.number_provider.get())
-            self.ack_register.add_pending(packet)
-            logger.debug(
-                f"Added pending acknowledgement for packet {packet.number()}"
-            )
-            self.__send_info(packet)
+        self.ack_register.wait_first_acked()
+
+        packets = iter(packets)
+        packet = next(packets)
+        while True:
+            try:
+                packet.set_number(
+                    self.number_provider.get(timeout=CLOSED_CHECK_INTERVAL)
+                )
+                self.__send_info(packet)
+                packet = next(packets)
+            except (TimeoutError, socket.timeout, Empty) as e:
+                # Connection may have been closed when we were waiting
+                # for a packet number
+                if self.status.is_closed():
+                    raise Exception("Connection was closed during send") from e
+            except StopIteration:
+                break
 
     def recv(self, buff_size, timeout=None):
         if self.status.get() == NOT_CONNECTED:
             raise Exception("Socket is not connected")
+        logger.trace("Trying to receive data (buff_size %d)" % buff_size)
+        start = time.time()
 
-        logger.debug("Trying to receive data (buff_size %d)" % buff_size)
+        while True:
+            try:
+                info_body_bytes = self.upstream_channel.get_bytes(
+                    buff_size, CLOSED_CHECK_INTERVAL
+                )
+                logger.trace("Received data (%d bytes)" % len(info_body_bytes))
+                return info_body_bytes
+            except (TimeoutError, socket.timeout) as e:
+                if self.status.is_closed():
+                    raise EndOfStream("Connection was closed") from e
+                if timeout and time.time() - start > timeout:
+                    raise
 
-        try:
-            info_body_bytes = self.upstream_channel.get_bytes(
-                buff_size, timeout
-            )
-        except TimeoutError or socket.timeout as e:
-            if self.status.get() == CLOSING:
-                raise Exception(
-                    "Connection was closed by the other end, reached end of"
-                    " stream"
-                ) from e
-            raise e
+    # If it times out or there is an end of stream, it returns
+    # the data read so far
+    def recv_exact(self, size, timeout=None):
+        buffer = b""
+        start = time.time()
+        while len(buffer) < size and (
+            not timeout or time.time() - start < timeout
+        ):
+            buffer += self.recv(size - len(buffer), timeout)
 
-        logger.debug("Received data (%d bytes)" % len(info_body_bytes))
-        return info_body_bytes
+        if len(buffer) == 0:
+            raise TimeoutError("No data received")
+        return buffer
+
+
+class EndOfStream(Exception):
+    pass
