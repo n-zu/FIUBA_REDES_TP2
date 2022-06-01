@@ -2,6 +2,7 @@ from args_client import args_client
 from loguru import logger
 import socket
 import os
+import sys
 
 ENDIANESS = "little"
 BYTES_READ = 1024
@@ -14,14 +15,21 @@ FILE_NOT_FOUND_ERROR = 1
 def download(endianess, bytes_read):
     args = args_client(False)
 
+    logger.remove()
+    if args.quiet:
+        logger.add(sys.stdout, level='ERROR')
+    elif args.verbose:
+        logger.add(sys.stdout, level='DEBUG')
+        logger.debug("in verbose mode")
+    else:
+        logger.add(sys.stdout, level='INFO')
+
     logger.debug("arguments read")
 
     HOST = args.host
     PORT = args.port
     FILEPATH = args.dst
     FILENAME = args.name
-
-    # TODO: log levels
 
     TYPE = (1).to_bytes(1, byteorder=endianess)
 
