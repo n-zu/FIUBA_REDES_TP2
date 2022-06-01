@@ -1,0 +1,11 @@
+services:
+  commandline:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    volumes:
+      - ../src:/root/src
+    ports:
+      - ${PORT}:${PORT}
+    environment:
+      - PORT=${PORT}
