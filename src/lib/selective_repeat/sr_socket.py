@@ -185,8 +185,8 @@ class SRSocket:
                 self.ack_register.acknowledge(packet)
             elif packet.type == FIN:
                 self.status.set_status(PEER_CLOSED)
-                self.ack_register.stop()
                 self.__wait_finack_arrived(packet.ack())
+                self.ack_register.stop()
             elif packet.type == FINACK:
                 logger.warning("Received FINACK packet but a FIN wasn't sent")
             else:
@@ -221,6 +221,10 @@ class SRSocket:
                     "Received unexpected packet type ({packet})"
                     f" while checking FINACK arrived, retrying (attempt {i})"
                 )
+                if packet.type == ACK:
+                    # Un ack que quedó colgado
+                    self.number_provider.push(packet.number())
+                    self.ack_register.acknowledge(packet)
             except (TimeoutError, socket.timeout):
                 logger.debug(
                     f"{FIN_WAIT_TIMEOUT} seconds passed since FINACK was"
@@ -279,6 +283,10 @@ class SRSocket:
                     )
                     self.__wait_finack_arrived(packet.ack())
                     return
+                if packet.type == INFO:
+                    # Algun info que no le llegó mi ack o le quedó colgado
+                    self.acker.received(packet)
+                    continue
             except (TimeoutError, socket.timeout):
                 self.send_socket.send_all(fin.encode())
                 logger.warning(

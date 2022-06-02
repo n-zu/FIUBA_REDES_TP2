@@ -47,7 +47,7 @@ MAX_SIZE = 128
 STOP_CHECK_INTERVAL = 0.1
 
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
-WINDOW_SIZE = 16
+WINDOW_SIZE = 500
 ACK_NUMBERS = 4294967296
 
 # Cada cuanto checkear en el recv (si no tiene timeout) y

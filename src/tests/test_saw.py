@@ -3,7 +3,7 @@ import time
 from lib.rdt_listener.rdt_listener import RDTListener, STOP_AND_WAIT
 import threading
 from loguru import logger
-import sys
+import pytest
 from lib.stop_and_wait.saw_socket import SAWSocket
 
 LISTEN_ADDR = ("127.0.0.1", 1234)
@@ -46,6 +46,7 @@ def __client(port, data):
     client.close()
 
 
+@pytest.mark.slow
 def test_should_receive_data_big_buggy():
     port = 57121 + 2
     data = b"".join([x.to_bytes(2, byteorder="little") for x in range(400)])

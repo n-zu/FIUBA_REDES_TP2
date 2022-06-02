@@ -248,6 +248,7 @@ def test_actual_file():
     os.remove(path + "test_file_1")
 
 
+@pytest.mark.slow
 def test_actual_file_buggy():
     port = __get_port()
     path = os.path.dirname(os.path.abspath(__file__)) + "/"
