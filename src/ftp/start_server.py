@@ -4,7 +4,7 @@ import threading
 from ftp.args_server import args_server
 from lib.rdt_listener.rdt_listener import RDTListener
 import signal
-
+import sys
 from loguru import logger
 
 
@@ -142,6 +142,15 @@ if __name__ == "__main__":
     method = "stop_and_wait"
 
     args = args_server()
+
+    logger.remove()
+    if args.quiet:
+        logger.add(sys.stdout, level='ERROR')
+    elif args.verbose:
+        logger.add(sys.stdout, level='DEBUG')
+        logger.debug("in verbose mode")
+    else:
+        logger.add(sys.stdout, level='INFO')
 
     logger.debug("arguments read")
 

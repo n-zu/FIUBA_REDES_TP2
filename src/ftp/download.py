@@ -3,7 +3,7 @@ from ftp.args_client import args_client
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.stop_and_wait.saw_socket import SAWSocket
 from loguru import logger
-
+import sys
 
 ENDIANESS = "little"
 BYTES_READ = 1024
@@ -14,7 +14,6 @@ FILE_NOT_FOUND_ERROR = 1
 
 
 def download(host, port, filepath, filename, endianess, bytes_read):
-    # TODO: log levels
 
     TYPE = (1).to_bytes(1, byteorder=endianess)
 
@@ -78,6 +77,15 @@ def download(host, port, filepath, filename, endianess, bytes_read):
 
 if __name__ == "__main__":
     args = args_client(False)
+
+    logger.remove()
+    if args.quiet:
+        logger.add(sys.stdout, level='ERROR')
+    elif args.verbose:
+        logger.add(sys.stdout, level='DEBUG')
+        logger.debug("in verbose mode")
+    else:
+        logger.add(sys.stdout, level='INFO')
 
     logger.debug("arguments read")
 
