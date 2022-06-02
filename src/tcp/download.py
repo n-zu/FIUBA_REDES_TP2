@@ -43,8 +43,12 @@ def download(endianess, bytes_read):
     logger.info("creating socket")
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    logger.info("conecting to server")
-    client.connect(ADDR)
+    try:
+        logger.info("conecting to server")
+        client.connect(ADDR)
+    except:
+        logger.error("couldn't connect to the server..exiting")
+        return
 
     logger.info("sending message")
     logger.debug("sending header")
