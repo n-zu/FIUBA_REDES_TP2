@@ -4,6 +4,7 @@ import os
 from args_server import args_server
 import socket
 import sys
+import signal
 
 MIN_SIZE = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -13,6 +14,7 @@ UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
 ENDIANESS = "little"
 
+threads = []
 
 def upload_to_server(socket, path, filename, length):
     logger.info(f"server receiving {filename}")
@@ -91,6 +93,15 @@ def check_type(socket, path):
         socket.send((ERROR_HEADER).to_bytes(1, byteorder=ENDIANESS))
         socket.send((UNKNOWN_TYPE_ERROR).to_bytes(1, byteorder=ENDIANESS))
 
+def exit_gracefully(sig, frame):
+    signal.signal(signal.SIGINT, original_sigint)
+
+    logger.debug("joining threads")
+    for t in threads:
+        t.join()
+
+    logger.info("exiting gracefully")
+    sys.exit(0)
 
 def start_server():
     args = args_server()
@@ -116,7 +127,6 @@ def start_server():
     serverSocket.listen(1)
     logger.info("the server is ready to receive")
 
-    threads = []
     while True:
         connectionSocket, addr = serverSocket.accept()
 
@@ -127,9 +137,7 @@ def start_server():
             threads.append(t)
             t.start()
 
-    for t in threads:
-        t.join()
-    return
 
-
+original_sigint = signal.getsignal(signal.SIGINT)
+signal.signal(signal.SIGINT, exit_gracefully)
 start_server()
