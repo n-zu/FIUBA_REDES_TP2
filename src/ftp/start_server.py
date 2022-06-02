@@ -104,7 +104,6 @@ def check_type(socket, path):
 
 
 def start_server(host, port, storage, method):
-
     serverSocket = RDTListener(method)
     serverSocket.bind((host, int(port)))
     serverSocket.listen(50)
@@ -139,7 +138,7 @@ def start_server(host, port, storage, method):
 
 
 if __name__ == "__main__":
-    method = "stop_and_wait"
+    method = "selective_repeat"
 
     args = args_server()
 

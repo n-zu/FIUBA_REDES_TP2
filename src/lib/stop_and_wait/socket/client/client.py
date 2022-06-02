@@ -10,7 +10,7 @@ from ...safe_socket import SafeSocket
 
 
 class SAWSocketClient(SAWSocketInterface):
-    CONNACK_WAIT_TIMEOUT = 2
+    CONNACK_WAIT_TIMEOUT = 1.5
 
     def __init__(self, initial_state, buggyness_factor=0):
         super().__init__(initial_state)

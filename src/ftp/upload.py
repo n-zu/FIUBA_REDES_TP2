@@ -40,8 +40,8 @@ def upload(host, port, filepath, filename, endianess, bytes_read):
     ADDR = (host, int(port))
 
     logger.info("creating socket")
-    #client = SRSocket()
-    client = SAWSocket()
+    client = SRSocket()
+    #client = SAWSocket()
 
     logger.info("conecting to server")
     client.connect(ADDR)
@@ -76,13 +76,14 @@ def upload(host, port, filepath, filename, endianess, bytes_read):
 
 
 if __name__ == "__main__":
-    args = args_client()
+    args = args_client(True)
     HOST = args.host
     PORT = args.port
     FILEPATH = args.src
     FILENAME = args.name
 
-    for file in os.listdir(FILEPATH):
-        print(file)
-
+    import time
+    start = time.time()
     upload(HOST, PORT, FILEPATH, FILENAME, ENDIANESS, BYTES_READ)
+    stop = time.time()
+    logger.info(f"Upload time: {stop - start}")

@@ -12,12 +12,12 @@ from ..packet import PacketFactory, InfoPacket, AckPacket, FinPacket, FinackPack
 
 
 class SAWSocketInterface(ABC):
-    PACKET_HANDLER_TIMEOUT = 0.5
+    PACKET_HANDLER_TIMEOUT = 0.1
     ACK_WAIT_TIMEOUT = 1.5
-    SAFETY_TIME_BEFORE_DISCONNECT = 30
-    FINACK_WAIT_TIMEOUT = 5
+    SAFETY_TIME_BEFORE_DISCONNECT = 7
+    FINACK_WAIT_TIMEOUT = 1.5
     MSS = 128
-    CLOSED_CHECK_INTERVAL = 0.5
+    CLOSED_CHECK_INTERVAL = 1
 
     def __init__(self, initial_state):
         self.socket = None
@@ -58,7 +58,7 @@ class SAWSocketInterface(ABC):
         self.socket.settimeout(self.PACKET_HANDLER_TIMEOUT)
         self.socket.setblocking(True)
         while True:
-            time.sleep(0.5)
+            time.sleep(0.1)
             with self.state_lock:
                 if not self.state.can_recv() and not self.state.can_send():
                     self.socket.close()

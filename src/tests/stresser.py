@@ -44,7 +44,6 @@ if __name__ == "__main__":
     threads = []
     for i in range(3):
         if random.randint(0, 1) == 0:
-            # run uploader in another thread
             thread = threading.Thread(target=uploader)
         else:
             thread = threading.Thread(target=downloader)

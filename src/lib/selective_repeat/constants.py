@@ -40,14 +40,14 @@ ACK_RETRIES = 50
 INITIAL_PACKET_NUMBER = 0
 
 # ~MTU
-MAX_SIZE = 1024
+MAX_SIZE = 128
 
 # Cada cuando interrumpir el bloqueo para checkear si se esta
 # cerrando el socket
 STOP_CHECK_INTERVAL = 0.1
 
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
-WINDOW_SIZE = 50
+WINDOW_SIZE = 16
 ACK_NUMBERS = 4294967296
 
 # Cada cuanto checkear en el recv (si no tiene timeout) y
