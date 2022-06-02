@@ -76,7 +76,7 @@ def upload(host, port, filepath, filename, endianess, bytes_read):
 
 
 if __name__ == "__main__":
-    args = args_client()
+    args = args_client(True)
     HOST = args.host
     PORT = args.port
     FILEPATH = args.src
