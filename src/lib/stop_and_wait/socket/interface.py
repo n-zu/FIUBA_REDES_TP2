@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
-
-from anyio import EndOfStream
 from loguru import logger
 import queue
 import socket
 import threading
 import time
 
-from ..exceptions import ProtocolError
+from ..exceptions import ProtocolError, EndOfStream
 from ..packet import PacketFactory, InfoPacket, AckPacket, FinPacket, FinackPacket
 
 
