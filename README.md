@@ -82,13 +82,13 @@ you can take your IP from there
 Start server:
 
 ```
-python3 -m ftp.start_server -H localhost -p 8080 -s server
+python3 -m ftp.start_server -H 127.0.0.1 -p 8080 -s server
 ```
 
 Upload file:
 
 ```
-python3 -m ftp.upload -H localhost -p 8080 -s . -n hello.txt
+python3 -m ftp.upload -H 127.0.0.1 -p 8080 -s . -n hello.txt
 ```
 
 Download file:

@@ -3,7 +3,7 @@ from ftp.args_client import args_client
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.stop_and_wait.saw_socket import SAWSocket
 from loguru import logger
-
+import sys
 ENDIANESS = "little"
 BYTES_READ = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -14,8 +14,6 @@ FILE_NOT_FOUND_ERROR = 1
 
 def upload(host, port, filepath, filename, endianess, bytes_read):
     logger.debug("arguments read")
-
-    # TODO: log levels
 
     TYPE = (0).to_bytes(1, byteorder=endianess)
 
@@ -77,13 +75,19 @@ def upload(host, port, filepath, filename, endianess, bytes_read):
 
 if __name__ == "__main__":
     args = args_client(True)
+
+    logger.remove()
+    if args.quiet:
+        logger.add(sys.stdout, level='ERROR')
+    elif args.verbose:
+        logger.add(sys.stdout, level='DEBUG')
+        logger.debug("in verbose mode")
+    else:
+        logger.add(sys.stdout, level='INFO')
+
     HOST = args.host
     PORT = args.port
     FILEPATH = args.src
     FILENAME = args.name
 
-    import time
-    start = time.time()
     upload(HOST, PORT, FILEPATH, FILENAME, ENDIANESS, BYTES_READ)
-    stop = time.time()
-    logger.info(f"Upload time: {stop - start}")
