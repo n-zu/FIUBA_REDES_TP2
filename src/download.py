@@ -48,6 +48,8 @@ def download(host, port, filepath, filename, endianess, bytes_read):
             logger.error(f"the file {filename} was not found in the server")
         else:
             logger.error("unknown error")
+        logger.debug("closing socket")
+        client.close()
         logger.error("exiting")
         return
 
