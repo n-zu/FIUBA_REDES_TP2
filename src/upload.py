@@ -1,5 +1,5 @@
 import os
-from ftp.args_client import args_client
+from lib.ftp.args_client import args_client
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.stop_and_wait.saw_socket import SAWSocket
 from loguru import logger

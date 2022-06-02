@@ -9,15 +9,6 @@ from lib.stop_and_wait.saw_socket import SAWSocket
 LISTEN_ADDR = ("127.0.0.1", 1234)
 
 
-config = {
-    "handlers": [
-        {"sink": sys.stdout, "level": "DEBUG"},
-        {"sink": "file.log", "serialize": True},
-    ],
-}
-logger.configure(**config)
-
-
 def handle_client(stream, recv_length, expected_data):
     data = b""
     stream.settimeout(1)
@@ -48,23 +39,6 @@ def server_thread(*expected_datas):
     listener.close()
 
 
-def client_thread(data_to_send):
-    socket = SAWSocket()
-    socket.connect(LISTEN_ADDR)
-    socket.send(bytes(data_to_send))
-
-    socket.close()
-
-
-def test_one_client_send_small_packet():
-    expected_data = b"Hi"
-    expected_datas = [expected_data, expected_data]
-    thread = threading.Thread(target=server_thread, args=expected_datas)
-    thread.start()
-    client_thread(expected_data)
-    thread.join()
-
-
 def __client(port, data):
     client = SAWSocket()
     client.connect(("127.0.0.1", port))
@@ -83,7 +57,7 @@ def test_should_receive_data_big_buggy():
     thread.start()
     socket = listener.accept()
 
-    output = socket.recv(len(data))
+    output = socket.recv_exact(len(data))
 
     # Si intercambias estas 2 lineas de lugar muere:
     socket.close()

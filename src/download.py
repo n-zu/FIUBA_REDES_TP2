@@ -1,5 +1,5 @@
 import os
-from ftp.args_client import args_client
+from lib.ftp.args_client import args_client
 from lib.selective_repeat.sr_socket import SRSocket
 from lib.stop_and_wait.saw_socket import SAWSocket
 from loguru import logger
@@ -25,8 +25,8 @@ def download(host, port, filepath, filename, endianess, bytes_read):
     ADDR = (host, int(port))
 
     logger.info("creating socket")
-    #client = SRSocket()
-    client = SAWSocket()
+    client = SRSocket()
+    #client = SAWSocket()
 
     logger.info("conecting to server")
     client.connect(ADDR)
@@ -62,6 +62,10 @@ def download(host, port, filepath, filename, endianess, bytes_read):
     logger.debug(f"file size: {str(file_size)}")
 
     logger.debug("downloading body")
+
+    if not os.path.exists(filepath):
+        os.makedirs(filepath)
+
     counter = 0
     with open(os.path.join(filepath, filename), "wb") as file:
         while counter < file_size:
