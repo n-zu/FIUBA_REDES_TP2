@@ -6,7 +6,8 @@ from lib.rdt_listener.rdt_listener import RDTListener
 import signal
 import sys
 from loguru import logger
-
+import signal
+threads = []
 
 MIN_SIZE = 1024
 UPLOAD_SUCCESSFUL_HEADER = 3
@@ -16,8 +17,17 @@ UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
 ENDIANESS = "little"
 
+stop_event = threading.Event()
 
-def signal_handler(sig, frame, stop_event):
+
+def exit_gracefully(sig, frame):
+    signal.signal(signal.SIGINT, original_sigint)
+
+    logger.debug("joining threads")
+    for t in threads:
+        t.join()
+
+    logger.info("exiting gracefully")
     stop_event.set()
 
 
@@ -113,13 +123,6 @@ def start_server(host, port, storage, method):
     serverSocket.settimeout(1)
     logger.info("the server is ready to receive")
 
-    stop_event = threading.Event()
-
-    if threading.current_thread().__class__.__name__ == '_MainThread':
-        signal.signal(signal.SIGINT, lambda sig,
-                      frame: signal_handler(sig, frame, stop_event))
-
-    threads = []
     while not stop_event.is_set():
         connectionSocket = serverSocket.accept()
 
@@ -129,7 +132,6 @@ def start_server(host, port, storage, method):
             )
             threads.append(t)
             t.start()
-            # TODO: join finished threads before server close (?)
         else:
             # non blocking listener
             time.sleep(0.1)
@@ -161,4 +163,6 @@ if __name__ == "__main__":
     PORT = args.port
     STORAGE = args.storage
 
+    original_sigint = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, exit_gracefully)
     start_server(HOST, PORT, STORAGE, method)
