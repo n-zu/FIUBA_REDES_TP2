@@ -1,6 +1,7 @@
 import os
 from ftp.args_client import args_client
 from lib.selective_repeat.sr_socket import SRSocket
+from lib.stop_and_wait.saw_socket import SAWSocket
 from loguru import logger
 
 
@@ -12,29 +13,21 @@ UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
 
 
-def download(endianess, bytes_read):
-    args = args_client(False)
-
-    logger.debug("arguments read")
-
-    HOST = args.host
-    PORT = args.port
-    FILEPATH = args.dst
-    FILENAME = args.name
-
+def download(host, port, filepath, filename, endianess, bytes_read):
     # TODO: log levels
 
     TYPE = (1).to_bytes(1, byteorder=endianess)
 
-    FILENAME_BYTES = FILENAME.encode()
+    FILENAME_BYTES = filename.encode()
 
     FILENAME_LEN = len(FILENAME_BYTES).to_bytes(2, byteorder=endianess)
     logger.debug(f"filename length: {str(len(FILENAME_BYTES))}")
 
-    ADDR = (HOST, int(PORT))
+    ADDR = (host, int(port))
 
     logger.info("creating socket")
-    client = SRSocket()
+    #client = SRSocket()
+    client = SAWSocket()
 
     logger.info("conecting to server")
     client.connect(ADDR)
@@ -53,7 +46,7 @@ def download(endianess, bytes_read):
         error_byte = client.recv(1)
         error = int.from_bytes(error_byte, byteorder=ENDIANESS)
         if error == FILE_NOT_FOUND_ERROR:
-            logger.error(f"the file {FILENAME} was not found in the server")
+            logger.error(f"the file {filename} was not found in the server")
         else:
             logger.error("unknown error")
         logger.error("exiting")
@@ -71,7 +64,7 @@ def download(endianess, bytes_read):
 
     logger.debug("downloading body")
     counter = 0
-    with open(os.path.join(FILEPATH, FILENAME), "wb") as file:
+    with open(os.path.join(filepath, filename), "wb") as file:
         while counter < file_size:
             data = client.recv(bytes_read)
             file.write(data)
@@ -83,4 +76,13 @@ def download(endianess, bytes_read):
     logger.debug("socket closed")
 
 
-download(ENDIANESS, BYTES_READ)
+if __name__ == "__main__":
+    args = args_client(False)
+
+    logger.debug("arguments read")
+
+    HOST = args.host
+    PORT = args.port
+    FILEPATH = args.dst
+    FILENAME = args.name
+    download(HOST, PORT, FILEPATH, FILENAME, ENDIANESS, BYTES_READ)

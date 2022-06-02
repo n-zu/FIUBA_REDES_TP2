@@ -115,10 +115,6 @@ class MuxDemuxListener:
         self.send_thread_handle.start()
 
     def accept(self):
-        logger.info(
-            f"Accepting connection (timeout={self.queue_timeout},"
-            f" block={self.queue_block})"
-        )
         while True:
             try:
                 addr = self.waiting_connections.get(
@@ -141,11 +137,11 @@ class MuxDemuxListener:
                 (data, addr) = self.queue_to_send.get(timeout=1)
                 # Me indica que el socket se desconecto
                 if data is None:
+                    del self.bytestreams[addr]
                     logger.debug(
                         f"Removing addr {addr} from bytestreams (now"
                         f" {len(self.bytestreams)} remaining)"
                     )
-                    del self.bytestreams[addr]
                 else:
                     bytes_sent = 0
                     while bytes_sent < len(data):
@@ -195,7 +191,7 @@ class MuxDemuxListener:
             logger.warning(
                 f"bytestreams is not empty: {self.bytestreams.keys()}"
             )
-            time.sleep(0.1)
+            time.sleep(2)
         self.stop_event.set()
         self.recv_thread_handle.join()
         self.send_thread_handle.join()

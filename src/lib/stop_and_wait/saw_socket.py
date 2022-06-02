@@ -5,7 +5,7 @@ from .socket.server.states.not_connected import ServerNotConnected
 
 
 class SAWSocket:
-    def __init__(self, buggyness_factor=0.0):
+    def __init__(self, buggyness_factor=0):
         self.socket = None
         self.timeout = None
         self.block = True

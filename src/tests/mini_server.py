@@ -44,7 +44,7 @@ def __handle_client(socket, stop):
 
 
 def start_server():
-    listener = RDTListener("stop_and_wait", buggyness_factor=0.5)
+    listener = RDTListener("stop_and_wait", buggyness_factor=0)
     listener.bind(LISTEN_ADDR)
     listener.settimeout(1)
     listener.listen(50)

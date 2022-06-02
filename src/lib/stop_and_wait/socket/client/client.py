@@ -6,6 +6,7 @@ from ..interface import SAWSocketInterface
 from ...exceptions import ProtocolError
 from ...packet import PacketFactory, ConnectPacket
 from ....utils import MTByteStream
+from ...safe_socket import SafeSocket
 
 
 class SAWSocketClient(SAWSocketInterface):
@@ -16,7 +17,7 @@ class SAWSocketClient(SAWSocketInterface):
         self.buggyness_factor = buggyness_factor
 
     def safe_connect(self, addr):
-        self.socket = MuxDemuxStream(self.buggyness_factor)
+        self.socket = SafeSocket(MuxDemuxStream(self.buggyness_factor))
         self.socket.connect(addr)
         self.socket.settimeout(self.CONNACK_WAIT_TIMEOUT)
         self.socket.setblocking(True)

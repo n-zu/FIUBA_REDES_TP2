@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+
+from anyio import EndOfStream
 from loguru import logger
 import queue
 import socket
@@ -14,12 +16,11 @@ class SAWSocketInterface(ABC):
     ACK_WAIT_TIMEOUT = 1.5
     SAFETY_TIME_BEFORE_DISCONNECT = 30
     FINACK_WAIT_TIMEOUT = 5
-    MSS = 4
+    MSS = 128
+    CLOSED_CHECK_INTERVAL = 0.5
 
     def __init__(self, initial_state):
         self.socket = None
-        self.socket_recv_lock = threading.RLock()
-        self.socket_send_lock = threading.RLock()
         self.packet_thread_handler = None
         self.current_ack_number = 0
         self.current_info_number = 0
@@ -31,7 +32,7 @@ class SAWSocketInterface(ABC):
         self.state_lock = threading.RLock()
 
         self.ack_queue = queue.SimpleQueue()
-        self.finack_queue = queue.SimpleQueue()
+        self.finack_received = threading.Event()
 
         self.info_bytestream = None
 
@@ -60,21 +61,19 @@ class SAWSocketInterface(ABC):
             time.sleep(0.5)
             with self.state_lock:
                 if not self.state.can_recv() and not self.state.can_send():
-                    logger.critical(f"Packet handler finished")
                     self.socket.close()
                     return
-                with self.socket_recv_lock:
-                    try:
-                        packet = PacketFactory.read_from_stream(self.socket)
-                    except socket.timeout:
-                        continue
-                    except ProtocolError as e:
-                        logger.error(f"Protocol violation: {e} - Disconnecting")
-                        self.state.set_disconnected()
-                        break
+                try:
+                    packet = self.socket.read_packet()
+                except socket.timeout:
+                    continue
+                except ProtocolError as e:
+                    logger.error(f"Protocol violation: {e} - Disconnecting")
+                    self.state.set_disconnected()
+                    break
+                logger.debug(f"Received packet {packet}")
                 packet.be_handled_by(self)
 
-        logger.critical(f"Packet handler finished")
         self.socket.close()
 
     def received_ack(self, packet):
@@ -94,34 +93,22 @@ class SAWSocketInterface(ABC):
             self.current_ack_number += 1
         else:
             logger.info(f"Received INFO retransmission (expected {self.current_ack_number}, got {packet.number}), dropping")
-        with self.socket_send_lock:
-            self.socket.send_all(bytes(AckPacket(packet.number)))
-
-    def send_fin(self):
-        logger.debug("Sending FIN")
-        with self.socket_send_lock:
-            self.socket.send_all(bytes(FinPacket()))
+        self.socket.send_all(bytes(AckPacket(packet.number)))
 
     def handle_info(self, packet):
-        logger.debug(f"Received INFO packet while in state {self.state}")
         self.state.handle_info(packet)
 
     def handle_connack(self, packet):
-        logger.debug("Received CONNACK packet while in state {self.state}")
         self.state.handle_connack(packet)
 
     def handle_ack(self, packet):
-        logger.debug(f"Received ACK packet while in state {self.state}")
         self.state.handle_ack(packet)
 
     def handle_fin(self, packet):
-        logger.debug(f"Received FIN packet while in state {self.state}")
         self.state.handle_fin(packet)
 
     def send_finack_for(self, _packet):
-        logger.debug(f"Sending FINACK")
-        with self.socket_send_lock:
-            self.socket.send_all(bytes(FinackPacket()))
+        self.socket.send_all(bytes(FinackPacket()))
 
     def wait_for_fin_retransmission(self):
         self.socket.settimeout(self.SAFETY_TIME_BEFORE_DISCONNECT)
@@ -131,31 +118,25 @@ class SAWSocketInterface(ABC):
                 packet = PacketFactory.read_from_stream(self.socket)
                 if packet.type == FinPacket.type:
                     logger.debug("Received FIN retransmission")
-                    logger.info("Trying to take lock")
-                    with self.socket_send_lock:
-                        logger.info("Took lock")
-                        self.socket.send_all(bytes(FinackPacket()))
+                    self.socket.send_all(bytes(FinackPacket()))
                 else:
                     logger.warning(f"Received packet distinct from FIN while waiting safety time ({packet}) (state: {self.state})")
             except socket.timeout:
                 logger.debug("Finished waiting safety time for FIN retransmission")
                 return
 
-    def received_finack(self, packet):
-        logger.success("Received FINACK")
-        if self.finack_queue.empty():
-            self.finack_queue.put(packet)
+    def received_finack(self, _packet):
+        self.finack_received.set()
 
     def handle_finack(self, packet):
-        logger.debug(f"Received FINACK packet while in state {self.state}")
         self.state.handle_finack(packet)
 
     def send_fin_reliably(self):
         old_timeout = self.socket.gettimeout()
         self.socket.settimeout(2)
         logger.info(f"Sending FIN reliably with timeout {self.socket.gettimeout()}")
-        while self.finack_queue.empty():
-            self.send_fin()
+        while not self.finack_received.is_set():
+            self.socket.send_all(bytes(FinPacket()))
             try:
                 packet = PacketFactory.read_from_stream(self.socket)
                 packet.be_handled_by(self)
@@ -169,8 +150,7 @@ class SAWSocketInterface(ABC):
         while True:
             with self.state_lock:
                 if self.state.can_send():
-                    with self.socket_send_lock:
-                        self.socket.send_all(bytes(packet))
+                    self.socket.send_all(bytes(packet))
                 else:
                     raise ProtocolError(f"Cannot send packet while in state {self.state}")
             try:
@@ -183,7 +163,7 @@ class SAWSocketInterface(ABC):
                 )
 
     def send(self, buffer):
-        logger.debug(f"Sending buffer {buffer}")
+        logger.debug(f"Sending buffer of length {len(buffer)}")
 
         packets = InfoPacket.split(
             self.MSS, buffer, initial_number=self.current_info_number
@@ -197,22 +177,27 @@ class SAWSocketInterface(ABC):
             self.send_reliably(packet)
 
     def recv(self, buff_size):
-        try:
-            info_body_bytes = self.info_bytestream.get_bytes(
-                buff_size, timeout=self.timeout, block=self.block
-            )
-            if len(info_body_bytes) > 0:
-                logger.debug(
-                    f"Received INFO packet {len(info_body_bytes)} bytes)"
-                )
-            return info_body_bytes
-        except socket.timeout:
-            logger.debug("Received no INFO packet")
-            return b""
+        logger.debug(f"Trying to receive data (buff_size = {buff_size})")
+
+        start = time.time()
+        while True:
+            if self.state.can_recv():
+                try:
+                    info_body_bytes = self.info_bytestream.get_bytes(
+                        buff_size, self.CLOSED_CHECK_INTERVAL
+                    )
+                    logger.trace(f"Received data ({len(info_body_bytes)} bytes)")
+                    return info_body_bytes
+                except socket.timeout:
+                    if not self.block and time.time() - start > self.timeout:
+                        raise
+            else:
+                raise EndOfStream("Connection was closed")
 
     def close(self):
-        logger.debug(f"Closing socket while in state {self.state}")
-        with self.state_lock, self.socket_recv_lock:
+        logger.debug(f"Closing socket")
+        # Si falla agregar socket_recv_lock
+        with self.state_lock:
             self.state.close()
 
     def settimeout(self, timeout):

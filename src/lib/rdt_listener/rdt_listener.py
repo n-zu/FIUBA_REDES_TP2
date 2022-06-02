@@ -35,7 +35,7 @@ class RDTListener:
         elif self.rdt_method == SELECTIVE_REPEAT:
             new_rdt_stream = SRSocket(**socket_args)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"RDT method {self.rdt_method} not implemented")
         new_rdt_stream.from_listener(new_mux_demux_stream)
 
         return new_rdt_stream

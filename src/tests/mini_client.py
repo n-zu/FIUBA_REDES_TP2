@@ -26,18 +26,8 @@ welcoming_message_bytes = len(welcoming_message).to_bytes(4, byteorder="big") + 
 
 
 def start_client():
-    socket = SAWSocket(buggyness_factor=0.5)
+    socket = SAWSocket(buggyness_factor=0)
     socket.connect(LISTEN_ADDR)
-    length = int.from_bytes(socket.recv_exact(4), byteorder="big")
-    data = socket.recv_exact(length)
-    data = data.decode("utf-8")
-    if data != welcoming_message:
-        raise Exception(f"Data received does not match expected data (expected {welcoming_message}, got {data})")
-    else:
-        logger.success("Received welcoming message")
-
-    socket.send(client_hello_bytes)
-    """
     if random.randint(0, 1) == 0:
         socket.send(client_hello_bytes)
         length = int.from_bytes(socket.recv_exact(4), byteorder="big")
@@ -57,14 +47,13 @@ def start_client():
             logger.success("Received welcoming message")
 
         socket.send(client_hello_bytes)
-    """
     time.sleep(random.random() * 5)
     socket.close()
     logger.critical("Client finished")
 
 
 def stopper_client():
-    socket = SAWSocket(buggyness_factor=0.2)
+    socket = SAWSocket(buggyness_factor=0)
     socket.connect(LISTEN_ADDR)
     logger.info("Sending stop message")
     socket.send(client_stop_bytes)
@@ -84,7 +73,7 @@ def main():
     for thread in threads:
         thread.join()
     stopper_client()
-    time.sleep(60)
+    time.sleep(30)
     for thread in threading.enumerate():
         print(thread.__dict__)
 
