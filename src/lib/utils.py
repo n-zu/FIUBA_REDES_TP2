@@ -5,7 +5,6 @@ import threading
 
 class MTByteStream:
     def __init__(self):
-        self.buffer = b""
         self.stream = queue.SimpleQueue()
         self.extra = b""
         self.lock = threading.Lock()
@@ -27,3 +26,7 @@ class MTByteStream:
 
     def put_bytes(self, data):
         self.stream.put(data)
+
+    def empty(self):
+        with self.lock:
+            return len(self.extra) == 0 and self.stream.empty()

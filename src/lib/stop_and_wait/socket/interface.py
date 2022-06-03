@@ -19,7 +19,7 @@ SEND_RETRIES = 50
 class SAWSocketInterface(ABC):
     PACKET_HANDLER_TIMEOUT = 0.1
     ACK_WAIT_TIMEOUT = 1.5
-    SAFETY_TIME_BEFORE_DISCONNECT = 7
+    SAFETY_TIME_BEFORE_DISCONNECT = 10
     FINACK_WAIT_TIMEOUT = 1.5
     MSS = 128
     CLOSED_CHECK_INTERVAL = 1
@@ -62,7 +62,7 @@ class SAWSocketInterface(ABC):
         logger.debug("Packet handler started")
         self.socket.settimeout(self.PACKET_HANDLER_TIMEOUT)
         self.socket.setblocking(True)
-        for i in range(SEND_RETRIES):
+        while True:
             time.sleep(0.1)
             with self.state_lock:
                 if not self.state.can_recv() and not self.state.can_send():
@@ -201,20 +201,20 @@ class SAWSocketInterface(ABC):
 
         start = time.time()
         while True:
-            if self.state.can_recv():
+            if self.state.can_recv() or not self.info_bytestream.empty():
                 try:
                     info_body_bytes = self.info_bytestream.get_bytes(
                         buff_size, self.CLOSED_CHECK_INTERVAL
                     )
-                    logger.trace(
-                        f"Received data ({len(info_body_bytes)} bytes)"
-                    )
+                    logger.trace(f"Received data ({len(info_body_bytes)} bytes)")
                     return info_body_bytes
                 except socket.timeout:
                     if not self.block and time.time() - start > self.timeout:
                         raise
             else:
-                raise EndOfStream("Connection was closed")
+                raise EndOfStream(
+                    f"Connection was closed, state: {self.state}, epmpty? {self.info_bytestream.empty()}"
+                )
 
     def close(self):
         logger.debug("Closing socket")
