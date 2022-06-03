@@ -1,7 +1,7 @@
 import math
 from loguru import logger
 
-from src.lib.selective_repeat.constants import MAX_SIZE
+from lib.selective_repeat.constants import MAX_SIZE
 
 CONNECT = b"0"
 CONNACK = b"1"
