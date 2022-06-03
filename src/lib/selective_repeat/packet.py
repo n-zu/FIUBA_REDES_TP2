@@ -1,6 +1,8 @@
 import math
 from loguru import logger
 
+from src.lib.selective_repeat.constants import MAX_SIZE
+
 CONNECT = b"0"
 CONNACK = b"1"
 INFO = b"2"
@@ -124,8 +126,6 @@ class Ack(Packet):
 
 
 class Info(Packet):
-    HEADER_SIZE = 21
-
     def __init__(self, number, body=None):
         super().__init__(INFO)
         self.__number = number
@@ -133,22 +133,18 @@ class Info(Packet):
 
     @classmethod
     def decode_from_stream(cls, stream):
-        length = int.from_bytes(stream.recv_exact(16), byteorder="big")
+        length = int.from_bytes(stream.recv_exact(2), byteorder="big")
         number = int.from_bytes(stream.recv_exact(4), byteorder="big")
         body = stream.recv_exact(length)
         return cls(number, body)
 
     @classmethod
-    def from_buffer(cls, buffer, mtu, initial_number=0):
+    def from_buffer(cls, buffer, mtu=MAX_SIZE, initial_number=0):
         packets = []
-        mtu = mtu - cls.HEADER_SIZE
         amount = math.ceil(len(buffer) / mtu)
         for i in range(initial_number, initial_number + amount):
-            length = mtu
-            if i == amount - 1:
-                length = len(buffer) - (amount - 1) * mtu
 
-            packet = cls(i, buffer[i * mtu : i * mtu + length])
+            packet = cls(i, buffer[i * mtu : (i + 1) * mtu])
             packets.append(packet)
 
         return packets
@@ -156,7 +152,7 @@ class Info(Packet):
     def encode(self):
         bytes = super().encode()
         size = len(self.__body) if self.__body else 0
-        bytes += size.to_bytes(16, byteorder="big")
+        bytes += size.to_bytes(2, byteorder="big")
         bytes += self.__number.to_bytes(4, byteorder="big")
         if self.__body:
             bytes += self.__body
