@@ -166,7 +166,7 @@ class SAWSocketInterface(ABC):
         logger.success("Sent FIN reliably")
 
     def send_reliably(self, packet):
-        while True:
+        for i in range(SEND_RETRIES):
             with self.state_lock:
                 if self.state.can_send():
                     self.socket.send_all(bytes(packet))
@@ -177,9 +177,10 @@ class SAWSocketInterface(ABC):
             try:
                 self.ack_queue.get(timeout=self.ACK_WAIT_TIMEOUT)
                 logger.debug("Received ACK packet")
-                break
+                return
             except queue.Empty:
                 logger.warning("Timeout waiting for ACK packet, sending again")
+        raise ProtocolError("Exceeded retries waiting for ACK packet")
 
     def send(self, buffer):
         logger.debug(f"Sending buffer of length {len(buffer)}")
