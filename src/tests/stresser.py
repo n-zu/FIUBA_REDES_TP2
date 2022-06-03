@@ -1,7 +1,7 @@
-from ftp.start_server import start_server
-from ftp.download import download
+from start_server import start_server
+from download import download
 import random
-from ftp.upload import upload
+from upload import upload
 import threading
 from loguru import logger
 
@@ -15,7 +15,7 @@ server_files = [
 client_files = [
     "tc.html",
     "traceroute.txt",
-    #"yee.mp4"
+    # "yee.mp4"
 ]
 
 
@@ -23,7 +23,7 @@ def uploader():
 
     filename = client_files.pop(random.randint(0, len(client_files) - 1))
     logger.info(f"Uploading {filename}")
-    filepath = f"tests/utils/user_files/"
+    filepath = "tests/utils/user_files/"
 
     upload(ADDR[0], ADDR[1], filepath, filename, "little", 1024)
 
@@ -38,7 +38,10 @@ def downloader():
 
 if __name__ == "__main__":
 
-    server_thread = threading.Thread(target=start_server, args=(ADDR[0], ADDR[1], "tests/utils/server_files/", "stop_and_wait"))
+    server_thread = threading.Thread(
+        target=start_server,
+        args=(ADDR[0], ADDR[1], "tests/utils/server_files/", "stop_and_wait"),
+    )
     server_thread.start()
 
     threads = []
@@ -54,5 +57,3 @@ if __name__ == "__main__":
         t.join()
 
     server_thread.join()
-
-

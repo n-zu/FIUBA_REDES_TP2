@@ -1,7 +1,5 @@
 import threading
 from lib.rdt_listener.rdt_listener import RDTListener
-from lib.stop_and_wait.saw_socket import SAWSocket
-from lib.selective_repeat.sr_socket import SRSocket
 import time
 import random
 from loguru import logger
@@ -17,12 +15,18 @@ logger.configure(**config)
 LISTEN_ADDR = ("127.0.0.1", 1234)
 
 client_hello = "Hello from client"
-client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(client_hello, "utf-8")
+client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(
+    client_hello, "utf-8"
+)
 client_stop = "Stop the server right now"
-client_stop_bytes = len(client_stop).to_bytes(4, byteorder="big") + bytes(client_stop, "utf-8")
+client_stop_bytes = len(client_stop).to_bytes(4, byteorder="big") + bytes(
+    client_stop, "utf-8"
+)
 
 welcoming_message = "Hello from server, this is a test"
-welcoming_message_bytes = len(welcoming_message).to_bytes(4, byteorder="big") + bytes(welcoming_message, "utf-8")
+welcoming_message_bytes = len(welcoming_message).to_bytes(
+    4, byteorder="big"
+) + bytes(welcoming_message, "utf-8")
 
 
 def __handle_client(socket, stop):
@@ -34,7 +38,10 @@ def __handle_client(socket, stop):
         logger.critical("Received stop message")
         stop.set()
     elif data != client_hello:
-        raise Exception(f"Data received does not match expected data (expected {client_hello}, got {data})")
+        raise Exception(
+            "Data received does not match expected data (expected"
+            f" {client_hello}, got {data})"
+        )
     else:
         logger.success("Received client hello")
 
@@ -54,7 +61,9 @@ def start_server():
     while not stop.is_set():
         socket = listener.accept()
         if socket is not None:
-            thread = threading.Thread(target=__handle_client, args=(socket, stop))
+            thread = threading.Thread(
+                target=__handle_client, args=(socket, stop)
+            )
             thread.start()
             thread_handlers.append(thread)
 

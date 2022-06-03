@@ -19,4 +19,3 @@ class ServerNotConnected(ServerStateBase):
 
     def close(self):
         self.saw_socket.set_state(ServerDisconnected(self.saw_socket))
-

@@ -1,6 +1,5 @@
 from unittest.mock import Mock
 from lib.stop_and_wait.packet import (
-    Packet,
     AckPacket,
     InfoPacket,
     ConnackPacket,

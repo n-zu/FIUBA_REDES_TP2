@@ -25,4 +25,3 @@ class ClientDisconnecting(ClientStateBase):
         self.saw_socket.received_finack(packet)
         self.saw_socket.wait_for_fin_retransmission()
         self.saw_socket.set_state(ClientDisconnected(self.saw_socket))
-

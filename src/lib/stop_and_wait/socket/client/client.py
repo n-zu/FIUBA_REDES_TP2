@@ -1,6 +1,5 @@
 import socket
 from loguru import logger
-import threading
 from ....mux_demux.mux_demux_stream import MuxDemuxStream
 from ..interface import SAWSocketInterface
 from ...exceptions import ProtocolError
@@ -45,4 +44,3 @@ class SAWSocketClient(SAWSocketInterface):
 
     def handle_connect(self, packet):
         self.state.handle_connect(packet)
-

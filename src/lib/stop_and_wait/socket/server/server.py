@@ -1,7 +1,9 @@
 from ....utils import MTByteStream
-from ..interface import *
+from ..interface import SAWSocketInterface
 from ...packet import ConnackPacket
 from ...safe_socket import SafeSocket
+import threading
+from loguru import logger
 
 
 class SAWSocketServer(SAWSocketInterface):
@@ -27,4 +29,3 @@ class SAWSocketServer(SAWSocketInterface):
     def send_connack_for(self, _packet):
         logger.debug("Sending CONNACK for CONNECT packet")
         self.socket.send_all(bytes(ConnackPacket()))
-

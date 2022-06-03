@@ -6,7 +6,13 @@ import threading
 import time
 
 from ..exceptions import ProtocolError, EndOfStream
-from ..packet import PacketFactory, InfoPacket, AckPacket, FinPacket, FinackPacket
+from ..packet import (
+    PacketFactory,
+    InfoPacket,
+    AckPacket,
+    FinPacket,
+    FinackPacket,
+)
 
 
 class SAWSocketInterface(ABC):
@@ -39,7 +45,7 @@ class SAWSocketInterface(ABC):
         pass
 
     def recv_exact(self, buff_size):
-        data = b''
+        data = b""
         while len(data) < buff_size:
             data += self.recv(buff_size - len(data))
         return data
@@ -76,9 +82,7 @@ class SAWSocketInterface(ABC):
 
     def received_ack(self, packet):
         if packet.number == self.current_info_number:
-            logger.info(
-                f"Received expected ACK packet (Nº {packet.number})"
-            )
+            logger.info(f"Received expected ACK packet (Nº {packet.number})")
             self.ack_queue.put(packet)
             self.current_info_number += 1
         else:
@@ -86,11 +90,17 @@ class SAWSocketInterface(ABC):
 
     def send_ack_for(self, packet):
         if self.current_ack_number == packet.number:
-            logger.info(f"Received expected INFO packet (Nº {packet.number}, data: {packet.body})")
+            logger.info(
+                f"Received expected INFO packet (Nº {packet.number}, data:"
+                f" {packet.body})"
+            )
             self.info_bytestream.put_bytes(packet.body)
             self.current_ack_number += 1
         else:
-            logger.info(f"Received INFO retransmission (expected {self.current_ack_number}, got {packet.number}), dropping")
+            logger.info(
+                "Received INFO retransmission (expected"
+                f" {self.current_ack_number}, got {packet.number}), dropping"
+            )
         self.socket.send_all(bytes(AckPacket(packet.number)))
 
     def handle_info(self, packet):
@@ -111,16 +121,21 @@ class SAWSocketInterface(ABC):
     def wait_for_fin_retransmission(self):
         self.socket.settimeout(self.SAFETY_TIME_BEFORE_DISCONNECT)
         while True:
-            logger.info(f"Waiting some time for FIN retransmission")
+            logger.info("Waiting some time for FIN retransmission")
             try:
                 packet = PacketFactory.read_from_stream(self.socket)
                 if packet.type == FinPacket.type:
                     logger.debug("Received FIN retransmission")
                     self.socket.send_all(bytes(FinackPacket()))
                 else:
-                    logger.warning(f"Received packet distinct from FIN while waiting safety time ({packet}) (state: {self.state})")
+                    logger.warning(
+                        "Received packet distinct from FIN while waiting"
+                        f" safety time ({packet}) (state: {self.state})"
+                    )
             except socket.timeout:
-                logger.debug("Finished waiting safety time for FIN retransmission")
+                logger.debug(
+                    "Finished waiting safety time for FIN retransmission"
+                )
                 return
 
     def received_finack(self, _packet):
@@ -132,14 +147,19 @@ class SAWSocketInterface(ABC):
     def send_fin_reliably(self):
         old_timeout = self.socket.gettimeout()
         self.socket.settimeout(2)
-        logger.info(f"Sending FIN reliably with timeout {self.socket.gettimeout()}")
+        logger.info(
+            f"Sending FIN reliably with timeout {self.socket.gettimeout()}"
+        )
         while not self.finack_received.is_set():
             self.socket.send_all(bytes(FinPacket()))
             try:
                 packet = PacketFactory.read_from_stream(self.socket)
                 packet.be_handled_by(self)
             except socket.timeout:
-                logger.warning(f"Timeout waiting for FINACK while in state {self.state}, sending again")
+                logger.warning(
+                    f"Timeout waiting for FINACK while in state {self.state},"
+                    " sending again"
+                )
                 continue
         self.socket.settimeout(old_timeout)
         logger.success("Sent FIN reliably")
@@ -150,15 +170,15 @@ class SAWSocketInterface(ABC):
                 if self.state.can_send():
                     self.socket.send_all(bytes(packet))
                 else:
-                    raise ProtocolError(f"Cannot send packet while in state {self.state}")
+                    raise ProtocolError(
+                        f"Cannot send packet while in state {self.state}"
+                    )
             try:
                 self.ack_queue.get(timeout=self.ACK_WAIT_TIMEOUT)
                 logger.debug("Received ACK packet")
                 break
             except queue.Empty:
-                logger.warning(
-                    f"Timeout waiting for ACK packet, sending again"
-                )
+                logger.warning("Timeout waiting for ACK packet, sending again")
 
     def send(self, buffer):
         logger.debug(f"Sending buffer of length {len(buffer)}")
@@ -184,7 +204,9 @@ class SAWSocketInterface(ABC):
                     info_body_bytes = self.info_bytestream.get_bytes(
                         buff_size, self.CLOSED_CHECK_INTERVAL
                     )
-                    logger.trace(f"Received data ({len(info_body_bytes)} bytes)")
+                    logger.trace(
+                        f"Received data ({len(info_body_bytes)} bytes)"
+                    )
                     return info_body_bytes
                 except socket.timeout:
                     if not self.block and time.time() - start > self.timeout:
@@ -193,7 +215,7 @@ class SAWSocketInterface(ABC):
                 raise EndOfStream("Connection was closed")
 
     def close(self):
-        logger.debug(f"Closing socket")
+        logger.debug("Closing socket")
         # Si falla agregar socket_recv_lock
         with self.state_lock:
             self.state.close()
@@ -203,4 +225,3 @@ class SAWSocketInterface(ABC):
 
     def setblocking(self, block):
         self.block = block
-

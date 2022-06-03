@@ -1,12 +1,10 @@
 import random
-import logging
 import threading
 import time
 from loguru import logger
 import sys
 
 from lib.rdt_listener.rdt_listener import RDTListener, STOP_AND_WAIT
-from lib.mux_demux.mux_demux_listener import MuxDemuxListener
 
 
 config = {
@@ -33,7 +31,7 @@ def main():
     for i in range(1):
         stream = listener.accept()
         logger.critical("Stream accepted")
-        thread = threading.Thread(target=new_handle_client, args=(stream, ))
+        thread = threading.Thread(target=new_handle_client, args=(stream,))
         thread.start()
         threads.append(thread)
 

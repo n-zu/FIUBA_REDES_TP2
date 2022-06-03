@@ -6,7 +6,7 @@ from lib.rdt_listener.rdt_listener import RDTListener
 import signal
 import sys
 from loguru import logger
-import signal
+
 threads = []
 
 MIN_SIZE = 1024
@@ -150,12 +150,12 @@ if __name__ == "__main__":
 
     logger.remove()
     if args.quiet:
-        logger.add(sys.stdout, level='ERROR')
+        logger.add(sys.stdout, level="ERROR")
     elif args.verbose:
-        logger.add(sys.stdout, level='DEBUG')
+        logger.add(sys.stdout, level="DEBUG")
         logger.debug("in verbose mode")
     else:
-        logger.add(sys.stdout, level='INFO')
+        logger.add(sys.stdout, level="INFO")
 
     logger.debug("arguments read")
 

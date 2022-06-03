@@ -10,4 +10,3 @@ class ServerDisconnected(ServerStateBase):
 
     def can_recv(self):
         return False
-

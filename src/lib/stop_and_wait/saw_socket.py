@@ -26,7 +26,9 @@ class SAWSocket:
     def connect(self, addr):
         if self.socket is not None:
             raise Exception("Already connected")
-        self.socket = SAWSocketClient(ClientNotConnected(self), buggyness_factor=self.buggyness_factor)
+        self.socket = SAWSocketClient(
+            ClientNotConnected(self), buggyness_factor=self.buggyness_factor
+        )
         self.socket.connect(addr)
         self.socket.settimeout(self.timeout)
         self.socket.setblocking(self.block)

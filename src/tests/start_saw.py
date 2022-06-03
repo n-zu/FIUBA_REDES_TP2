@@ -1,11 +1,8 @@
-import logging
 import sys
-import threading
 import time
 from loguru import logger
 
 from lib.stop_and_wait.saw_socket import SAWSocket
-from lib.mux_demux.mux_demux_stream import MuxDemuxStream
 
 config = {
     "handlers": [

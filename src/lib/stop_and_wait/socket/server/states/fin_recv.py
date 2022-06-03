@@ -25,4 +25,3 @@ class ServerFinRecv(ServerStateBase):
         self.saw_socket.send_fin_reliably()
         self.saw_socket.wait_for_fin_retransmission()
         self.saw_socket.set_state(ServerDisconnected(self.saw_socket))
-

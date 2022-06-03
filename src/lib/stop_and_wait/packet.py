@@ -60,7 +60,7 @@ class ConnackPacket(Packet):
 
 
 class InfoPacket(Packet):
-    MAX_SPLIT_NUMBER = 2 ** 16
+    MAX_SPLIT_NUMBER = 2**16
     type = INFO
 
     def __init__(self, number=0, body=b""):
@@ -72,8 +72,12 @@ class InfoPacket(Packet):
     def read_from_stream(cls, stream):
         packet = cls()
         try:
-            packet.length = int.from_bytes(stream.recv_exact(4), byteorder="big")
-            packet.number = int.from_bytes(stream.recv_exact(4), byteorder="big")
+            packet.length = int.from_bytes(
+                stream.recv_exact(4), byteorder="big"
+            )
+            packet.number = int.from_bytes(
+                stream.recv_exact(4), byteorder="big"
+            )
             packet.body = stream.recv_exact(packet.length)
         except socket.timeout:
             raise ProtocolError("Timeout while reading INFO packet")
@@ -94,7 +98,10 @@ class InfoPacket(Packet):
         number_of_packets = ceil(len(buffer) / mtu)
         packets = []
         for i in range(number_of_packets):
-            packet = InfoPacket((i + initial_number) % cls().MAX_SPLIT_NUMBER, buffer[i * mtu:(i + 1) * mtu])
+            packet = InfoPacket(
+                (i + initial_number) % cls().MAX_SPLIT_NUMBER,
+                buffer[i * mtu : (i + 1) * mtu],
+            )
             packets.append(packet)
         return packets
 
@@ -176,11 +183,17 @@ class PacketFactory:
         packet_type = stream.recv_exact(1)
         if ConnackPacket.type == packet_type:
             return ConnackPacket.read_from_stream(stream)
-        raise ValueError(f"Expected Connack Packet (type {ConnackPacket.type}), got type {packet_type}")
+        raise ValueError(
+            f"Expected Connack Packet (type {ConnackPacket.type}), got type"
+            f" {packet_type}"
+        )
 
     @classmethod
     def read_ack(cls, stream):
         packet_type = stream.recv_exact(1)
         if AckPacket.type == packet_type:
             return AckPacket.read_from_stream(stream)
-        raise ValueError(f"Expected Ack Packet (type {AckPacket.type}), got type {packet_type}")
+        raise ValueError(
+            f"Expected Ack Packet (type {AckPacket.type}), got type"
+            f" {packet_type}"
+        )
