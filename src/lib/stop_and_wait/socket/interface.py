@@ -21,6 +21,7 @@ class SAWSocketInterface(ABC):
     ACK_WAIT_TIMEOUT = 1.5
     SAFETY_TIME_BEFORE_DISCONNECT = 10
     FINACK_WAIT_TIMEOUT = 1.5
+    # Must check MSS <= 65514
     MSS = 128
     CLOSED_CHECK_INTERVAL = 1
 

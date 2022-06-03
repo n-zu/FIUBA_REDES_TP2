@@ -73,7 +73,7 @@ class InfoPacket(Packet):
         packet = cls()
         try:
             packet.length = int.from_bytes(
-                stream.recv_exact(4), byteorder="big"
+                stream.recv_exact(2), byteorder="big"
             )
             packet.number = int.from_bytes(
                 stream.recv_exact(4), byteorder="big"
@@ -85,7 +85,7 @@ class InfoPacket(Packet):
 
     def __bytes__(self):
         packet_bytes = self.type
-        packet_bytes += self.length.to_bytes(4, byteorder="big")
+        packet_bytes += self.length.to_bytes(2, byteorder="big")
         packet_bytes += self.number.to_bytes(4, byteorder="big")
         packet_bytes += self.body
         return packet_bytes
