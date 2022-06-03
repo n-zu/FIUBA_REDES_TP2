@@ -8,6 +8,8 @@ from ....utils import MTByteStream
 from ...safe_socket import SafeSocket
 
 
+CONNECT_RETRIES = 50
+
 class SAWSocketClient(SAWSocketInterface):
     CONNACK_WAIT_TIMEOUT = 1.5
 
@@ -21,12 +23,14 @@ class SAWSocketClient(SAWSocketInterface):
         self.socket.settimeout(self.CONNACK_WAIT_TIMEOUT)
         self.socket.setblocking(True)
 
-        while True:
+        fail_retries = True
+        for i in range(CONNECT_RETRIES):
             try:
                 logger.trace("Sending connect packet")
                 self.socket.send_all(bytes(ConnectPacket()))
 
                 connack = PacketFactory.read_connack(self.socket)
+                fail_retries = False
                 break
             except socket.timeout:
                 logger.trace("Timeout waiting for CONNACK, sending again")
@@ -34,6 +38,10 @@ class SAWSocketClient(SAWSocketInterface):
                 logger.error(f"Protocol error: {e}")
                 self.stop()
                 return
+
+        if fail_retries:
+            raise TimeoutError("Could not confirm connection was established")
+            
         self.info_bytestream = MTByteStream()
         self.state.handle_connack(connack)
         logger.success("Connected")

@@ -1,4 +1,4 @@
-from start_server import start_server
+from start_server import start_server, stop_event
 from download import download
 import random
 from upload import upload
@@ -25,7 +25,15 @@ def uploader():
     logger.info(f"Uploading {filename}")
     filepath = "tests/utils/user_files/"
 
-    upload(ADDR[0], ADDR[1], filepath, filename, "little", 1024)
+    upload(
+        ADDR[0],
+        ADDR[1],
+        filepath,
+        filename,
+        "little",
+        1024,
+        "selective_repeat",
+    )
 
 
 def downloader():
@@ -33,14 +41,27 @@ def downloader():
     logger.info(f"Downloading {filename}")
     download_folder = "tests/utils/user_files/"
 
-    download(ADDR[0], ADDR[1], download_folder, filename, "little", 1024)
+    download(
+        ADDR[0],
+        ADDR[1],
+        download_folder,
+        filename,
+        "little",
+        1024,
+        "selective_repeat",
+    )
 
 
 if __name__ == "__main__":
 
     server_thread = threading.Thread(
         target=start_server,
-        args=(ADDR[0], ADDR[1], "tests/utils/server_files/", "stop_and_wait"),
+        args=(
+            ADDR[0],
+            ADDR[1],
+            "tests/utils/server_files/",
+            "selective_repeat",
+        ),
     )
     server_thread.start()
 
@@ -56,4 +77,5 @@ if __name__ == "__main__":
     for t in threads:
         t.join()
 
+    stop_event.set()
     server_thread.join()

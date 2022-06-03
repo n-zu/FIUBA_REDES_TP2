@@ -92,7 +92,6 @@ class MuxDemuxListener:
         self.queue_size = 0
         self.accept_addr = None
         self.accept_socket = None
-        # TODO: Remover bytestreams de conexiones cerradas
         self.bytestreams = {}
         self.stop_event = threading.Event()
         self.waiting_connections = None
