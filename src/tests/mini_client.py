@@ -29,7 +29,7 @@ success = 0
 
 def start_client():
     try:
-        socket = SAWSocket(buggyness_factor=0.2)
+        socket = SAWSocket()
         socket.connect(LISTEN_ADDR)
         if random.randint(0, 1) == 0:
             socket.send(client_hello_bytes)
@@ -57,13 +57,13 @@ def start_client():
         time.sleep(random.random() * 5)
         socket.close()
         logger.critical("Client finished")
-    except Exception:
+    except Exception as e:
         exit(1)
 
 
 def stopper_client():
     try:
-        socket = SAWSocket(buggyness_factor=0.2)
+        socket = SAWSocket()
         socket.connect(LISTEN_ADDR)
         logger.info("Sending stop message")
         socket.send(client_stop_bytes)
@@ -89,7 +89,7 @@ def main():
         time.sleep(15)
         for thread in threading.enumerate():
             print(thread.__dict__)
-    except Exception:
+    except Exception as e:
         exit(1)
 
 

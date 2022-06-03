@@ -151,7 +151,9 @@ class SAWSocketInterface(ABC):
         logger.info(
             f"Sending FIN reliably with timeout {self.socket.gettimeout()}"
         )
-        while not self.finack_received.is_set():
+        for i in range(SEND_RETRIES):
+            if self.finack_received.is_set():
+                break
             self.socket.send_all(bytes(FinPacket()))
             try:
                 packet = PacketFactory.read_from_stream(self.socket)
@@ -163,7 +165,10 @@ class SAWSocketInterface(ABC):
                 )
                 continue
         self.socket.settimeout(old_timeout)
-        logger.success("Sent FIN reliably")
+        if not self.finack_received.is_set():
+            logger.warning("Could not confirm FIN was received")
+        else:
+            logger.success("Sent FIN reliably")
 
     def send_reliably(self, packet):
         for i in range(SEND_RETRIES):
