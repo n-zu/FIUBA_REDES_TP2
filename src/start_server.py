@@ -10,9 +10,10 @@ from loguru import logger
 threads = []
 
 MIN_SIZE = 1024
-UPLOAD_SUCCESSFUL_HEADER = 3
-CONFIRM_DOWNLOAD_HEADER = 2
+CONFIRM_DOWNLOAD = 2
+CONFIRM_UPLOAD = 3
 ERROR_HEADER = 4
+
 UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
 ENDIANESS = "little"
@@ -45,7 +46,7 @@ def upload_to_server(socket, path, filename, length):
             counter += len(data)
 
     logger.info(f"server finished receiving {filename}")
-    socket.send((UPLOAD_SUCCESSFUL_HEADER).to_bytes(1, byteorder=ENDIANESS))
+    socket.send((CONFIRM_UPLOAD).to_bytes(1, byteorder=ENDIANESS))
 
     socket.close()
 
@@ -66,7 +67,7 @@ def download_from_server(socket, path, filename):
 
     logger.info(f"server sending {filename}")
 
-    confirm_byte = (CONFIRM_DOWNLOAD_HEADER).to_bytes(1, byteorder=ENDIANESS)
+    confirm_byte = (CONFIRM_DOWNLOAD).to_bytes(1, byteorder=ENDIANESS)
     length_byte = (length).to_bytes(8, byteorder=ENDIANESS)
     socket.send(confirm_byte + length_byte)
     logger.debug(f"file length: {str(length)}")
