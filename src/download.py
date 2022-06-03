@@ -1,8 +1,8 @@
 import os
 from lib.ftp.args_client import args_client
 from lib.selective_repeat.sr_socket import SRSocket
-
-# from lib.stop_and_wait.saw_socket import SAWSocket
+from lib.stop_and_wait.saw_socket import SAWSocket
+from lib.rdt_listener.rdt_listener import SELECTIVE_REPEAT, STOP_AND_WAIT
 from loguru import logger
 import sys
 
@@ -14,7 +14,7 @@ UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
 
 
-def download(host, port, filepath, filename, endianess, bytes_read):
+def download(host, port, filepath, filename, endianess, bytes_read, method):
 
     TYPE = (1).to_bytes(1, byteorder=endianess)
 
@@ -26,8 +26,12 @@ def download(host, port, filepath, filename, endianess, bytes_read):
     ADDR = (host, int(port))
 
     logger.info("creating socket")
-    client = SRSocket()
-    # client = SAWSocket()
+    if method == SELECTIVE_REPEAT:
+        client = SRSocket()
+    elif method == STOP_AND_WAIT:
+        client = SAWSocket()
+    else:
+        raise Exception("Invalid transport method")
 
     logger.info("conecting to server")
     client.connect(ADDR)
