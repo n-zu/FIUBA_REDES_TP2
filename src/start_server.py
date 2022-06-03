@@ -57,16 +57,18 @@ def download_from_server(socket, path, filename):
     except Exception:
         logger.error("file not found")
 
-        socket.send((ERROR_HEADER).to_bytes(1, byteorder=ENDIANESS))
-        socket.send((FILE_NOT_FOUND_ERROR).to_bytes(1, byteorder=ENDIANESS))
+        error_header_byte = (ERROR_HEADER).to_bytes(1, byteorder=ENDIANESS)
+        error_byte = (FILE_NOT_FOUND_ERROR).to_bytes(1, byteorder=ENDIANESS)
+        socket.send(error_header_byte + error_byte)
 
         socket.close()
         return
 
     logger.info(f"server sending {filename}")
 
-    socket.send((CONFIRM_DOWNLOAD_HEADER).to_bytes(1, byteorder=ENDIANESS))
-    socket.send((length).to_bytes(8, byteorder=ENDIANESS))
+    confirm_byte = (CONFIRM_DOWNLOAD_HEADER).to_bytes(1, byteorder=ENDIANESS)
+    length_byte = (length).to_bytes(8, byteorder=ENDIANESS)
+    socket.send(confirm_byte + length_byte)
     logger.debug(f"file length: {str(length)}")
 
     counter = 0
@@ -112,8 +114,9 @@ def check_type(socket, path):
         download_from_server(socket, path, filename)
 
     else:
-        socket.send((ERROR_HEADER).to_bytes(1, byteorder=ENDIANESS))
-        socket.send((UNKNOWN_TYPE_ERROR).to_bytes(1, byteorder=ENDIANESS))
+        error_header_byte = (ERROR_HEADER).to_bytes(1, byteorder=ENDIANESS)
+        error_byte = (UNKNOWN_TYPE_ERROR).to_bytes(1, byteorder=ENDIANESS)
+        socket.send(error_header_byte + error_byte)
 
 
 def start_server(host, port, storage, method):

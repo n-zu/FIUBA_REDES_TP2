@@ -13,12 +13,10 @@ UPLOAD_SUCCESSFUL_HEADER = 3
 ERROR_HEADER = 4
 UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
-
+TYPE = b'\x00'
 
 def upload(host, port, filepath, filename, endianess, bytes_read):
     logger.debug("arguments read")
-
-    TYPE = (0).to_bytes(1, byteorder=endianess)
 
     logger.debug("getting file size")
 
@@ -50,10 +48,7 @@ def upload(host, port, filepath, filename, endianess, bytes_read):
     logger.info("sending message")
     logger.debug("sending header")
     # send header
-    client.send(TYPE)
-    client.send(SIZE)
-    client.send(FILENAME_LEN)
-    client.send(FILENAME_BYTES)
+    client.send(TYPE + SIZE + FILENAME_LEN + FILENAME_BYTES)
 
     logger.debug("sending body")
     # send body

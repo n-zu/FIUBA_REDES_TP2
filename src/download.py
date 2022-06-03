@@ -12,11 +12,9 @@ CONFIRM_DOWNLOAD_HEADER = 2
 ERROR_HEADER = 4
 UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
-
+TYPE = b'\x01'
 
 def download(host, port, filepath, filename, endianess, bytes_read):
-
-    TYPE = (1).to_bytes(1, byteorder=endianess)
 
     FILENAME_BYTES = filename.encode()
 
@@ -35,9 +33,7 @@ def download(host, port, filepath, filename, endianess, bytes_read):
     logger.info("sending message")
     logger.debug("sending header")
     # send header
-    client.send(TYPE)
-    client.send(FILENAME_LEN)
-    client.send(FILENAME_BYTES)
+    client.send(TYPE + FILENAME_LEN + FILENAME_BYTES)
 
     type_byte = client.recv(1)
     type = int.from_bytes(type_byte, byteorder=ENDIANESS)
