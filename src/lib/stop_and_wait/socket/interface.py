@@ -22,7 +22,7 @@ class SAWSocketInterface(ABC):
     SAFETY_TIME_BEFORE_DISCONNECT = 10
     FINACK_WAIT_TIMEOUT = 1.5
     # Must check MSS <= 65514
-    MSS = 128
+    MSS = 4
     CLOSED_CHECK_INTERVAL = 1
 
     def __init__(self, initial_state):
@@ -87,6 +87,7 @@ class SAWSocketInterface(ABC):
             logger.info(f"Received expected ACK packet (Nº {packet.number})")
             self.ack_queue.put(packet)
             self.current_info_number += 1
+            self.current_info_number %= InfoPacket.MAX_SPLIT_NUMBER
         else:
             logger.trace("Received ACK from retransmission, dropping")
 
@@ -98,6 +99,7 @@ class SAWSocketInterface(ABC):
             )
             self.info_bytestream.put_bytes(packet.body)
             self.current_ack_number += 1
+            self.current_ack_number %= InfoPacket.MAX_SPLIT_NUMBER
         else:
             logger.info(
                 "Received INFO retransmission (expected"
