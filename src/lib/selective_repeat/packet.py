@@ -61,6 +61,9 @@ class Packet:
     def __str__(self):
         return "PACKET"
 
+    def be_handled_by(self, handler):
+        pass
+
 
 class Connect(Packet):
     def __init__(self):
@@ -76,6 +79,9 @@ class Connect(Packet):
     def ack(self):
         return Connack()
 
+    def be_handled_by(self, handler):
+        handler.handle_connect(self)
+
 
 class Connack(Packet):
     def __init__(self):
@@ -87,6 +93,9 @@ class Connack(Packet):
 
     def __str__(self):
         return "CONNACK"
+
+    def be_handled_by(self, handler):
+        handler.handle_connack(self)
 
 
 class Ack(Packet):
@@ -109,6 +118,9 @@ class Ack(Packet):
 
     def __str__(self):
         return f"ACK (number {self.number()})"
+
+    def be_handled_by(self, handler):
+        handler.handle_ack(self)
 
 
 class Info(Packet):
@@ -165,6 +177,9 @@ class Info(Packet):
     def ack(self):
         return Ack(self.number())
 
+    def be_handled_by(self, handler):
+        handler.handle_info(self)
+
 
 class Fin(Packet):
     def __init__(self):
@@ -180,6 +195,9 @@ class Fin(Packet):
     def ack(self):
         return Finack()
 
+    def be_handled_by(self, handler):
+        handler.handle_fin(self)
+
 
 class Finack(Packet):
     def __init__(self):
@@ -191,3 +209,6 @@ class Finack(Packet):
 
     def __str__(self):
         return "FINACK"
+
+    def be_handled_by(self, handler):
+        handler.handle_finack(self)

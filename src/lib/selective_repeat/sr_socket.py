@@ -170,29 +170,30 @@ class SRSocket:
                 continue
 
             logger.info(f"Received packet of type {packet}")
-            if packet.type == CONNECT:
-                logger.warning(
-                    "Received CONNECT packet while already connected."
-                )
-            elif packet.type == CONNACK:
-                logger.warning(
-                    "Received CONNACK packet while already connected."
-                )
-            elif packet.type == INFO:
-                self.acker.received(packet)
-            elif packet.type == ACK:
-                self.number_provider.push(packet.number())
-                self.ack_register.acknowledge(packet)
-            elif packet.type == FIN:
-                self.status.set_status(PEER_CLOSED)
-                self.__wait_finack_arrived(packet.ack())
-                self.ack_register.stop()
-            elif packet.type == FINACK:
-                logger.warning("Received FINACK packet but a FIN wasn't sent")
-            else:
-                logger.warning("Received unknown packet type")
+            packet.be_handled_by(self)
 
         logger.debug("Packet handler stopping")
+
+    def handle_connect(self, connect):
+        logger.warning("Received CONNECT packet while already connected.")
+
+    def handle_connack(self, connack):
+        logger.warning("Received CONNACK packet while already connected.")
+
+    def handle_info(self, info):
+        self.acker.received(info)
+
+    def handle_ack(self, ack):
+        self.number_provider.push(ack.number())
+        self.ack_register.acknowledge(ack)
+
+    def handle_fin(self, fin):
+        self.status.set_status(PEER_CLOSED)
+        self.__wait_finack_arrived(fin.ack())
+        self.ack_register.stop()
+
+    def handle_finack(self, finack):
+        logger.warning("Received FINACK packet but a FIN wasn't sent")
 
     def __wait_finack_arrived(self, finack):
         self.socket.settimeout(FIN_WAIT_TIMEOUT)
