@@ -9,7 +9,7 @@ from loguru import logger
 
 threads = []
 
-MIN_SIZE = 1024
+MIN_SIZE = 30000
 CONFIRM_DOWNLOAD = 2
 CONFIRM_UPLOAD = 3
 ERROR_HEADER = 4

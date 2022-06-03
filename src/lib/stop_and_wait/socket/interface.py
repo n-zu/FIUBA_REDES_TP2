@@ -23,7 +23,7 @@ class SAWSocketInterface(ABC):
     SAFETY_TIME_BEFORE_DISCONNECT = 10
     FINACK_WAIT_TIMEOUT = 1.5
     # Must check MSS <= 65514
-    MSS = 4
+    MSS = 32768
     CLOSED_CHECK_INTERVAL = 1
 
     def __init__(self, initial_state):
@@ -125,15 +125,15 @@ class SAWSocketInterface(ABC):
 
     def wait_for_fin_retransmission(self):
         self.socket.settimeout(self.SAFETY_TIME_BEFORE_DISCONNECT)
+        logger.info("Waiting some time for FIN retransmission")
         while True:
-            logger.info("Waiting some time for FIN retransmission")
             try:
                 packet = PacketFactory.read_from_stream(self.socket)
                 if packet.type == FinPacket.type:
                     logger.debug("Received FIN retransmission")
                     self.socket.send_all(bytes(FinackPacket()))
                 else:
-                    logger.warning(
+                    logger.debug(
                         "Received packet distinct from FIN while waiting"
                         f" safety time ({packet}) (state: {self.state})"
                     )
@@ -200,9 +200,7 @@ class SAWSocketInterface(ABC):
         logger.debug(f"Fragmented buffer into {len(packets)} packets")
 
         for packet in packets:
-            logger.debug(
-                f"Sending packet Nº {packet.number}, data: {packet.body}"
-            )
+            logger.debug(f"Sending packet Nº {packet.number}")
             self.send_reliably(packet)
 
     def recv(self, buff_size):

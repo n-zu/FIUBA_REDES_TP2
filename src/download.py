@@ -7,7 +7,7 @@ from loguru import logger
 import sys
 
 ENDIANESS = "little"
-BYTES_READ = 1024
+BYTES_READ = 30000
 CONFIRM_DOWNLOAD_HEADER = 2
 ERROR_HEADER = 4
 UNKNOWN_TYPE_ERROR = 0

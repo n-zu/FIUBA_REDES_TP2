@@ -41,7 +41,7 @@ INITIAL_PACKET_NUMBER = 0
 
 # ~MTU. Maximum UDP payload is 65527, minus mux-demux header (6 bytes),
 # minus our header (7 bytes) so this can't be geater than 65514
-MAX_SIZE = 30000
+MAX_SIZE = 32768
 
 # Cada cuando interrumpir el bloqueo para checkear si se esta
 # cerrando el socket
@@ -56,7 +56,7 @@ PACKET_NUMBER_BYTES = 4
 PACKET_SIZE_BYTES = 2
 
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
-WINDOW_SIZE = 1
+WINDOW_SIZE = 500
 ACK_NUMBERS = 1 << 8 * PACKET_NUMBER_BYTES
 # 4294967296 si PACKET_NUMBER_BYTES = 4
 
