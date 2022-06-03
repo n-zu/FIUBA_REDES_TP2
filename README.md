@@ -26,6 +26,12 @@ Download file:
 python3 src/download.py -H 127.0.0.1 -p 8080 -d client -n hello.txt
 ```
 
+## Switch between protocols
+
+On `src/download.py` line 119, `src/upload.py` line 112 and
+`src/start_server.py` line 151, set method to `"stop_and_wait"` or
+`"selective_repeat"`
+
 ## Tests
 
 Para ejecutar los tests, ejecutar el comando `pytest` o `python3 -m pytest`

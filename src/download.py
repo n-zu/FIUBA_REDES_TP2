@@ -109,4 +109,12 @@ if __name__ == "__main__":
     PORT = args.port
     FILEPATH = args.dst
     FILENAME = args.name
-    download(HOST, PORT, FILEPATH, FILENAME, ENDIANESS, BYTES_READ)
+    download(
+        HOST,
+        PORT,
+        FILEPATH,
+        FILENAME,
+        ENDIANESS,
+        BYTES_READ,
+        method=SELECTIVE_REPEAT,
+    )
