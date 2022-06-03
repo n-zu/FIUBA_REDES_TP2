@@ -14,6 +14,7 @@ from ..packet import (
     FinackPacket,
 )
 
+SEND_RETRIES = 50
 
 class SAWSocketInterface(ABC):
     PACKET_HANDLER_TIMEOUT = 0.1
@@ -61,7 +62,7 @@ class SAWSocketInterface(ABC):
         logger.debug("Packet handler started")
         self.socket.settimeout(self.PACKET_HANDLER_TIMEOUT)
         self.socket.setblocking(True)
-        while True:
+        for i in range(SEND_RETRIES):
             time.sleep(0.1)
             with self.state_lock:
                 if not self.state.can_recv() and not self.state.can_send():
@@ -72,12 +73,12 @@ class SAWSocketInterface(ABC):
                 except socket.timeout:
                     continue
                 except ProtocolError as e:
-                    logger.error(f"Protocol violation: {e} - Disconnecting")
-                    self.state.set_disconnected()
+                    logger.error(f"Protocol violation: {e}")
                     break
                 logger.debug(f"Received packet {packet}")
                 packet.be_handled_by(self)
-
+        logger.info("Disconnecting")
+        self.state.set_disconnected()
         self.socket.close()
 
     def received_ack(self, packet):
