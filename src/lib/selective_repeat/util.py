@@ -24,7 +24,7 @@ class AckNumberProvider:
         for i in range(
             INITIAL_PACKET_NUMBER, INITIAL_PACKET_NUMBER + window_size
         ):
-            self.available.put(i)
+            self.available.put(i % ACK_NUMBERS)
 
     def get(self, timeout=None):
         n = self.available.get(timeout=timeout)
