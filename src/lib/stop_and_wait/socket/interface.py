@@ -18,13 +18,15 @@ SEND_RETRIES = 50
 
 
 class SAWSocketInterface(ABC):
-    PACKET_HANDLER_TIMEOUT = 0.1
+    PACKET_HANDLER_TIMEOUT = 5
     ACK_WAIT_TIMEOUT = 1.5
     SAFETY_TIME_BEFORE_DISCONNECT = 10
     FINACK_WAIT_TIMEOUT = 1.5
     # Must check MSS <= 65514
-    MSS = 32768
+    MSS = 62000
     CLOSED_CHECK_INTERVAL = 1
+
+    # 65536/2 = 32768, 32768 - 13 = 32755
 
     def __init__(self, initial_state):
         self.socket = None
@@ -219,7 +221,7 @@ class SAWSocketInterface(ABC):
                         raise
             else:
                 raise EndOfStream(
-                    f"Connection was closed, state: {self.state}, epmpty?"
+                    f"Connection was closed, state: {self.state}, empty?"
                     f" {self.info_bytestream.empty()}"
                 )
 

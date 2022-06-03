@@ -10,10 +10,13 @@ logger.configure(**config)
 
 LISTEN_ADDR = ("127.0.0.1", 1234)
 
-client_hello = "Hello from client"
-client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(
-    client_hello, "utf-8"
+client_hello = b"".join(
+    [x.to_bytes(2, byteorder="little") for x in range(30000)]
 )
+client_hello_bytes = (
+    len(client_hello).to_bytes(4, byteorder="big") + client_hello
+)
+
 client_stop = "Stop the server right now"
 client_stop_bytes = len(client_stop).to_bytes(4, byteorder="big") + bytes(
     client_stop, "utf-8"

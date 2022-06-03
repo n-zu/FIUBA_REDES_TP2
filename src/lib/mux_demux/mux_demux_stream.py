@@ -7,7 +7,7 @@ from ..utils import MTByteStream
 from loguru import logger
 
 MAGIC_WORD = "ROSTOV"
-PACKET_SIZE = 2**15
+PACKET_SIZE = 2**16 - 8
 
 
 def extract_packet(packet):

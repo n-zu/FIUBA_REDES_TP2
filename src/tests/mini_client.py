@@ -4,16 +4,14 @@ import time
 import random
 from loguru import logger
 import sys
+from .mini_server import client_hello_bytes
 
 config = {"handlers": [{"sink": sys.stdout, "level": "TRACE"}]}
 logger.configure(**config)
 
 LISTEN_ADDR = ("127.0.0.1", 1234)
 
-client_hello = "Hello from client"
-client_hello_bytes = len(client_hello).to_bytes(4, byteorder="big") + bytes(
-    client_hello, "utf-8"
-)
+
 client_stop = "Stop the server right now"
 client_stop_bytes = len(client_stop).to_bytes(4, byteorder="big") + bytes(
     client_stop, "utf-8"

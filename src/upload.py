@@ -8,7 +8,7 @@ import sys
 import time
 
 ENDIANESS = "little"
-BYTES_READ = 30000
+BYTES_READ = 60000
 UPLOAD_SUCCESSFUL_HEADER = 3
 ERROR_HEADER = 4
 UNKNOWN_TYPE_ERROR = 0
@@ -102,6 +102,14 @@ if __name__ == "__main__":
     FILENAME = args.name
 
     start = time.time()
-    upload(HOST, PORT, FILEPATH, FILENAME, ENDIANESS, BYTES_READ)
+    upload(
+        HOST,
+        PORT,
+        FILEPATH,
+        FILENAME,
+        ENDIANESS,
+        BYTES_READ,
+        method="selective_repeat",
+    )
     stop = time.time()
     logger.info(f"Upload time: {stop - start}")
