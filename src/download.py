@@ -12,9 +12,18 @@ CONFIRM_DOWNLOAD_HEADER = 2
 ERROR_HEADER = 4
 UNKNOWN_TYPE_ERROR = 0
 FILE_NOT_FOUND_ERROR = 1
-TYPE = b'\x01'
+TYPE = b"\x01"
 
-def download(host, port, filepath, filename, endianess, bytes_read, method):
+
+def download(
+    host,
+    port,
+    filepath,
+    filename,
+    endianess,
+    bytes_read,
+    method=SELECTIVE_REPEAT,
+):
 
     FILENAME_BYTES = filename.encode()
 
