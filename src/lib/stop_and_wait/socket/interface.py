@@ -94,10 +94,7 @@ class SAWSocketInterface(ABC):
 
     def send_ack_for(self, packet):
         if self.current_ack_number == packet.number:
-            logger.info(
-                f"Received expected INFO packet (Nº {packet.number}, data:"
-                f" {packet.body})"
-            )
+            logger.info(f"Received expected INFO packet (Nº {packet.number}")
             self.info_bytestream.put_bytes(packet.body)
             self.current_ack_number += 1
             self.current_ack_number %= InfoPacket.MAX_SPLIT_NUMBER
