@@ -10,6 +10,7 @@ from ...safe_socket import SafeSocket
 
 CONNECT_RETRIES = 50
 
+
 class SAWSocketClient(SAWSocketInterface):
     CONNACK_WAIT_TIMEOUT = 1.5
 
@@ -41,7 +42,7 @@ class SAWSocketClient(SAWSocketInterface):
 
         if fail_retries:
             raise TimeoutError("Could not confirm connection was established")
-            
+
         self.info_bytestream = MTByteStream()
         self.state.handle_connack(connack)
         logger.success("Connected")
