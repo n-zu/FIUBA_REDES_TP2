@@ -32,16 +32,6 @@ On `src/download.py` line 119, `src/upload.py` line 112 and
 `src/start_server.py` line 151, set method to `"stop_and_wait"` or
 `"selective_repeat"`
 
-## Tests
-
-Para ejecutar los tests, ejecutar el comando `pytest` o `python3 -m pytest`
-
-Para ejecutar un solo archivo: `pytest src/tests/test_sr.py`
-
-Para ejecutar tests lentos: `pytest --runslow`
-
-Para ejecutar un test particular: `pytest src/tests/test_sr.py -k test_should_receive_data`.
-
 ## CLI : Command Line Interface
 
 ### Client
