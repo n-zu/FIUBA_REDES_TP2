@@ -16,6 +16,7 @@ from ..packet import (
 
 SEND_RETRIES = 50
 
+
 class SAWSocketInterface(ABC):
     PACKET_HANDLER_TIMEOUT = 0.1
     ACK_WAIT_TIMEOUT = 1.5
@@ -212,14 +213,17 @@ class SAWSocketInterface(ABC):
                     info_body_bytes = self.info_bytestream.get_bytes(
                         buff_size, self.CLOSED_CHECK_INTERVAL
                     )
-                    logger.trace(f"Received data ({len(info_body_bytes)} bytes)")
+                    logger.trace(
+                        f"Received data ({len(info_body_bytes)} bytes)"
+                    )
                     return info_body_bytes
                 except socket.timeout:
                     if not self.block and time.time() - start > self.timeout:
                         raise
             else:
                 raise EndOfStream(
-                    f"Connection was closed, state: {self.state}, epmpty? {self.info_bytestream.empty()}"
+                    f"Connection was closed, state: {self.state}, epmpty?"
+                    f" {self.info_bytestream.empty()}"
                 )
 
     def close(self):

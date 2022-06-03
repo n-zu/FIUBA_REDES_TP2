@@ -20,9 +20,9 @@ client_stop_bytes = len(client_stop).to_bytes(4, byteorder="big") + bytes(
 )
 
 welcoming_message = "Hello from server, this is a test"
-welcoming_message_bytes = len(welcoming_message).to_bytes(4, byteorder="big") + bytes(
-    welcoming_message, "utf-8"
-)
+welcoming_message_bytes = len(welcoming_message).to_bytes(
+    4, byteorder="big"
+) + bytes(welcoming_message, "utf-8")
 
 success = 0
 
@@ -57,7 +57,7 @@ def start_client():
         time.sleep(random.random() * 5)
         socket.close()
         logger.critical("Client finished")
-    except Exception as e:
+    except Exception:
         exit(1)
 
 
@@ -89,7 +89,7 @@ def main():
         time.sleep(15)
         for thread in threading.enumerate():
             print(thread.__dict__)
-    except Exception as e:
+    except Exception:
         exit(1)
 
 

@@ -20,9 +20,9 @@ client_stop_bytes = len(client_stop).to_bytes(4, byteorder="big") + bytes(
 )
 
 welcoming_message = "Hello from server, this is a test"
-welcoming_message_bytes = len(welcoming_message).to_bytes(4, byteorder="big") + bytes(
-    welcoming_message, "utf-8"
-)
+welcoming_message_bytes = len(welcoming_message).to_bytes(
+    4, byteorder="big"
+) + bytes(welcoming_message, "utf-8")
 
 
 def __handle_client(socket, stop):
@@ -61,7 +61,9 @@ def start_server():
         while not stop.is_set():
             socket = listener.accept()
             if socket is not None:
-                thread = threading.Thread(target=__handle_client, args=(socket, stop))
+                thread = threading.Thread(
+                    target=__handle_client, args=(socket, stop)
+                )
                 thread.start()
                 thread_handlers.append(thread)
 
