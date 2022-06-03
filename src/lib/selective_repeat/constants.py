@@ -37,17 +37,18 @@ ACK_TIMEOUT = 1.5
 ACK_RETRIES = 50
 
 # Primer numero de secuencia a enviar
-INITIAL_PACKET_NUMBER = 0
+INITIAL_PACKET_NUMBER = 4294967280
 
-# ~MTU
-MAX_SIZE = 128
+# ~MTU. Maximum UDP payload is 65527, minus mux-demux header (6 bytes),
+# minus our header (7 bytes) so this can't be geater than 65514
+MAX_SIZE = 30000
 
 # Cada cuando interrumpir el bloqueo para checkear si se esta
 # cerrando el socket
 STOP_CHECK_INTERVAL = 0.1
 
 # Siempre se debe cumplir WINDOW_SIZE < ACK_NUMBERS / 2
-WINDOW_SIZE = 500
+WINDOW_SIZE = 1
 ACK_NUMBERS = 4294967296
 
 # Cada cuanto checkear en el recv (si no tiene timeout) y
